@@ -1,4 +1,5 @@
 import random
+import time
 from matplotlib import pyplot as plt
 import numpy as np
 
@@ -16,7 +17,6 @@ class NSGA2Pro:
         
         self.population_A = self.initialize_population()[0] # Archive population (A_0)
         self.population_B = self.initialize_population()[1] # Usual population (B_0)
-        self.trade_off_coeff = 0.5
 
 
     def initialize_population(self):
@@ -28,16 +28,16 @@ class NSGA2Pro:
         - population A: A 2D empty array
         - population B: A 2D array representing the initial population of portfolios.
         """
-        population_A = np.empty(self.num_assets) # Initialize archive population A with zeros
+        population_A = np.empty(self.num_assets)
         population_B = []
         for _ in range(self.N_pop):
             individual = np.zeros(self.num_assets)
             selected_assets = random.sample(range(self.num_assets), self.cardinality) # Select random assets to include in the portfolio
             for asset in selected_assets:
-                valor = random.uniform(0, 1)
-                while valor == 0:
-                    valor = random.uniform(0, 1)
-                individual[asset] = valor
+                value = random.uniform(0, 1)
+                while value == 0:
+                    value = random.uniform(0, 1)
+                individual[asset] = value
             individual /= individual.sum()
             population_B.append(individual)
         return population_A, np.array(population_B)
@@ -57,39 +57,22 @@ class NSGA2Pro:
         risk = np.dot(individual.T, np.dot(self.cov_matrix, individual)) # Risk = w T * cov_matrix * w
         return expected_return, risk
 
-    def fitness(self, individual):
-        """
-        Calculate the fitness of an individual portfolio.
-
-        Parameters:
-        - individual: A 1D array representing the portfolio weights.
-
-        Returns:
-        - fitness: A scalar value representing the fitness of the portfolio.
-
-        """
-        expected_return, risk = self.evaluate(individual)
-        return self.trade_off_coeff * risk - (1 - self.trade_off_coeff) * expected_return # Weighted sum of return and risk
-    
     def update(self, population_A, population_B):
         """
-        Update the archive population A with the current population B.
+        Update the archive population with the current population.
 
         Parameters:
-        - population_A: The current archive population.
-        - population_B: The current population B.
+        - population_A: The archive population.
+        - population_B: The current population.
 
         Returns:
         - updated_population_A: The updated archive population.
+        
         """
-        combined_population = np.vstack((population_A, population_B)) # Combine the two populations
-        fitness_values = np.array([self.fitness(ind) for ind in combined_population])
-        
-        
-        # Sort individuals based on fitness values
-        sorted_indices = np.argsort(fitness_values)
-        updated_population_A = combined_population[sorted_indices][:self.N_arc] # Select the best individuals for the archive population
-        return updated_population_A
+        combined_population = np.vstack((population_A, population_B))
+        fronts = self.fast_non_dominated_sort(combined_population)
+        selected_population = self.selection(fronts, combined_population, self.N_arc)
+        return selected_population
 
     def fast_non_dominated_sort(self, population):
         """
@@ -102,20 +85,26 @@ class NSGA2Pro:
         - fronts: A list of fronts, where each front contains the indices of the individuals in that front.
         
         """
-        fronts = [[]] # List of fronts 
-        dominance_count = np.zeros(len(population)) # A 2D array that count of how many individuals dominate individual i
-        dominated_sets = [[] for _ in range(len(population))] # List of dominated sets for each individual
+        fronts = [[]] # List of fronts
+        population_size = len(population) # Size of the population 
+        dominance_count = np.zeros(population_size) # A 2D array that count of how many individuals dominate individual i
+        dominated_sets = [[] for _ in range(population_size)] # List of dominated sets for each individual
+
+        matrix_ret_risks = np.zeros((2,population_size)) # Matrix to store the returns and risks of the population
+        for i in range(population_size):
+            returns, risk = self.evaluate(population[i])
+            matrix_ret_risks[1][i] = risk # Store the risk in the matrix
+            matrix_ret_risks[0][i] = returns
         
-        for i, p in enumerate(population): # Index and portfolio
-            for j, q in enumerate(population): # Compare with all other portfolios
-                if i != j:
-                    if self.dominates(p, q): 
-                        dominated_sets[i].append(j) 
-                    elif self.dominates(q, p):
-                        dominance_count[i] += 1
+        for i in range(population_size): # Index and portfolio
+            for j in range(population_size): # Compare with all other portfolios
+                if self.dominates(matrix_ret_risks, i, j): # If i dominates j
+                    dominated_sets[i].append(j)
+                elif self.dominates(matrix_ret_risks, j, i): # If j dominates i
+                    dominance_count[i] += 1
             if dominance_count[i] == 0: # If no one dominates this individual, it belongs to the first front
                 fronts[0].append(i)
-        
+
         i = 0
         while fronts[i]:
             next_front = [] # Next front to be filled
@@ -126,10 +115,11 @@ class NSGA2Pro:
                         next_front.append(q)
             i += 1
             fronts.append(next_front) # Add the next front to the list of fronts
+
         
         return fronts[:-1] # Remove the last empty front
     
-    def dominates(self, ind1, ind2):
+    def dominates(self, matrix_ret_risks, ind1, ind2):
         """
         Check if individual 1 dominates individual 2.
         
@@ -141,8 +131,10 @@ class NSGA2Pro:
         - True if ind1 dominates ind2, False otherwise.
         
         """
-        return1, risk1 = self.evaluate(ind1) # Evaluate the first individual
-        return2, risk2 = self.evaluate(ind2) # Evaluate the second individual        
+        return1 = matrix_ret_risks[0][ind1]
+        risk1 = matrix_ret_risks[1][ind1]
+        return2 = matrix_ret_risks[0][ind2]
+        risk2 = matrix_ret_risks[1][ind2]       
         return (return1 >= return2 and risk1 <= risk2) and (return1 > return2 or risk1 < risk2)
     
     def crowding_distance_assignment(self, front, population):
@@ -158,6 +150,8 @@ class NSGA2Pro:
 
         distances = np.zeros(len(front)) # Initialize distances to zero
         for m in range(2): # For each objective (expected return and risk)
+            # Se puede hacer el evalute antes para evitar hacerlo dos veces
+
             front.sort(key=lambda x: self.evaluate(population[x])[m]) # Sort the front by the m-th objective
             distances[0] = distances[-1] = np.inf # Assign infinite distance to the limits
             min_val = self.evaluate(population[front[0]])[m]
@@ -189,7 +183,7 @@ class NSGA2Pro:
                 new_population.extend(front)
             else:
                 distances = self.crowding_distance_assignment(front, population) # Calculate the crowding distance for the front
-                sorted_front = sorted(zip(front, distances), key=lambda x: -x[1]) # Sort by distance, highest to lowest
+                sorted_front = sorted(zip(front, distances), key=lambda x: -x[1]) # Zip the front with the distances and sort by distance (highest to lowest (-x[1]))
                 new_individuals = sorted_front[:population_size - len(new_population)] # Select the best individuals based on distance
                 new_population.extend([x[0] for x in new_individuals]) # Add the selected individuals to the new population
         return np.array([population[i] for i in new_population]) # Convert indices to actual individuals
@@ -206,27 +200,27 @@ class NSGA2Pro:
         - child: Child (portfolio) created from the parents.
 
         """
+
         child = np.zeros(self.num_assets)
         parent1_indexes = np.where(parent1 > 0)[0]
         parent2_indexes = np.where(parent2 > 0)[0]
-        assets = 0
-    
-        while assets < self.cardinality:
-            if random.random() < 0.5:
-                child[parent1_indexes[0]] = parent1[parent1_indexes[0]]
-                index = np.where(parent2_indexes == parent1_indexes[0])[0]
-                if index.size > 0:
-                    parent2_indexes = np.delete(parent2_indexes, index[0])
-                
-                parent1_indexes = parent1_indexes[1:]
-            else:
-                child[parent2_indexes[0]] = parent2[parent2_indexes[0]]
-                index = np.where(parent1_indexes == parent2_indexes[0])[0]
-                if index.size > 0:
-                    parent1_indexes = np.delete(parent1_indexes, index[0])
 
-                parent2_indexes = parent2_indexes[1:]
-            assets += 1
+        equal_indexes = np.intersect1d(parent1_indexes, parent2_indexes)
+
+        for index in equal_indexes:
+            if random.random() > 0.5:
+                child[index] = parent1[index]
+            else:
+                child[index] = parent2[index]
+      
+        parent1_indexes = np.setdiff1d(parent1_indexes, equal_indexes)
+        parent2_indexes = np.setdiff1d(parent2_indexes, equal_indexes)
+
+        for i in range(self.cardinality - len(equal_indexes)):
+            if random.random() > 0.5:
+                child[parent1_indexes[i]] = parent1[parent1_indexes[i]]
+            else:
+                child[parent2_indexes[i]] = parent2[parent2_indexes[i]]
 
         return child / child.sum()
     
@@ -258,8 +252,11 @@ class NSGA2Pro:
         - new_population: The new population after genetic operations.
         """
         new_population = []
+        #fronts = self.fast_non_dominated_sort(population)
         for _ in range(self.N_pop):
-            parents = random.sample(list(population), 2)
+            #parents = random.sample(fronts[0], 2) # Select two parents from the first front
+            #child = self.crossover(population[parents[0]], population[parents[1]])
+            parents = random.sample(list(population), 2) # Select two parents randomly
             child = self.crossover(parents[0], parents[1])
             child = self.mutation(child)
             new_population.append(child)
@@ -291,21 +288,23 @@ class NSGA2Pro:
 
         """
         i = 0
+        started_time = time.time()
         while i < self.generations:
             print("Generation: ", i)
-            self.population_A = self.update(self.population_A, self.population_B)
-            self.population_B = self.vary(self.population_A)
-            population_sorted = self.fast_non_dominated_sort(np.vstack((self.population_A, self.population_B)))
-            self.population_B = self.selection(population_sorted, np.vstack((self.population_A, self.population_B)), self.N_pop)
-            
+            self.population_A = self.best(self.population_A, self.population_B)
+            offsprings = self.vary(self.population_B)
+            self.population_B = self.best(self.population_B, offsprings)
             i += 1            
-    
+
+        end_time = time.time()
+        elapsed_time = end_time - started_time
+        print(f"Execution time: {elapsed_time:.2f} seconds")
         return self.best(self.population_A, self.population_B)
     
 
-    def plot_pareto_front(self):
-        pareto_front = self.fast_non_dominated_sort(self.population_A)[0]
-        pareto_points = np.array([self.evaluate(self.population_A[i]) for i in pareto_front])
+    def plot_pareto_front(self, population):
+        pareto_front = self.fast_non_dominated_sort(population)[0]
+        pareto_points = np.array([self.evaluate(population[i]) for i in pareto_front])
         
         plt.figure(figsize=(8, 6))
         plt.scatter(pareto_points[:, 1], pareto_points[:, 0], color='red', label='Pareto Front')

@@ -1,13 +1,11 @@
 from algorithms.nsga2 import NSGA2
 from algorithms.nsga2_pro import NSGA2Pro
 from algorithms.data_loader import load_dataset
-import numpy as np
-import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
 
     # Load dataset and run the algorithm
-    returns, cov_matrix = load_dataset('data/port1.txt')
+    returns, cov_matrix = load_dataset('data/port5.txt')
     # print(f"Expected Returns: {returns}")
     # print(f"Covariance Matrix:\n{cov_matrix}")
 
@@ -28,5 +26,5 @@ if __name__ == "__main__":
 
 
     """nsga2 = NSGA2Pro(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations)
-    nsga2.evolve()
-    nsga2.plot_pareto_front()"""
+    poblacion_final = nsga2.evolve()
+    nsga2.plot_pareto_front(poblacion_final)"""

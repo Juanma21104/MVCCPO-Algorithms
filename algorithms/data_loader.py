@@ -25,9 +25,12 @@ def load_dataset(file_path):
     corr_matrix = np.eye(num_assets)  # Initialize with identity matrix
 
     # Read the correlation coefficients
+    print("numero de lineas: ", len(lines), " --- num_assets: ", num_assets)
     for i in range(num_assets + 1, len(lines)):
+        if(lines[i].strip().split()) == []:
+            continue
         i_idx, j_idx, corr = lines[i].strip().split()
-        i_idx, j_idx = int(i_idx) - 1, int(j_idx) - 1  # Convert to 0-based index
+        i_idx, j_idx = int(i_idx) - 1, int(j_idx) - 1 # Convert to 0-based index
         corr = float(corr)
         corr_matrix[i_idx, j_idx] = corr
         corr_matrix[j_idx, i_idx] = corr  # Symmetric matrix
