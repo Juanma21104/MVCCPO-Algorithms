@@ -25,7 +25,6 @@ def load_dataset(file_path):
     corr_matrix = np.eye(num_assets)  # Initialize with identity matrix
 
     # Read the correlation coefficients
-    print("numero de lineas: ", len(lines), " --- num_assets: ", num_assets)
     for i in range(num_assets + 1, len(lines)):
         if(lines[i].strip().split()) == []:
             continue
