@@ -19,42 +19,6 @@ class SPEA2:
         self.population_A = utils.initialize_population(self.N_arc, self.num_assets, self.cardinality)[0] # Archive population (A_0)
         self.population_B = utils.initialize_population(self.N_pop, self.num_assets, self.cardinality)[1] # Usual population (B_0)
 
-    def precompute_objectives(self, population):
-        """
-        Precompute the returns and risks for all individuals in the population.
-        
-        Parameters:
-        - population: A 2D array representing the population of portfolios.
-        
-        Returns:
-        - matrix: A 2D array containing the returns and risks of the population.
-        """
-        N = len(population)
-        matrix = np.zeros((2, N))
-        for i in range(N):
-            ret, risk = utils.evaluate(population[i], self.returns, self.cov_matrix)
-            matrix[0][i] = ret
-            matrix[1][i] = risk
-        return matrix
-    
-    def dominates(self, matrix_ret_risks, ind1, ind2):
-        """
-        Check if individual 1 dominates individual 2.
-        
-        Parameters:
-        - matrix_ret_risks: A 2D array containing the returns and risks of the population.
-        - ind1: First individual (portfolio).
-        - ind2: Second individual (portfolio).
-
-        Returns:
-        - True if ind1 dominates ind2, False otherwise.
-        """
-        return1 = matrix_ret_risks[0][ind1]
-        risk1 = matrix_ret_risks[1][ind1]
-        return2 = matrix_ret_risks[0][ind2]
-        risk2 = matrix_ret_risks[1][ind2]       
-        return (return1 >= return2 and risk1 <= risk2) and (return1 > return2 or risk1 < risk2)
-
     def raw_fitness(self, population, matrix_ret_risks):
         N = len(population)
         dominance_count = np.zeros(N) # A 2D array that count of how many individuals dominate individual i
@@ -62,9 +26,9 @@ class SPEA2:
         
         for i in range(N): # Index and portfolio
             for j in range(N): # Compare with all other portfolios
-                if self.dominates(matrix_ret_risks, i, j): # If i dominates j
+                if utils.dominates(matrix_ret_risks, i, j): # If i dominates j
                     dominated_sets[i].append(j)
-                elif self.dominates(matrix_ret_risks, j, i): # If j dominates i
+                elif utils.dominates(matrix_ret_risks, j, i): # If j dominates i
                     dominance_count[i] += 1
 
         raw_fitness_values = np.zeros(N)
@@ -102,7 +66,7 @@ class SPEA2:
         - F: A 1D array representing the total fitness of each individual in the population.
         - matrix_ret_risks: A 2D array containing the returns and risks of the population.
         """
-        matrix_ret_risks = self.precompute_objectives(population)
+        matrix_ret_risks = utils.precompute_objectives(population, self.returns, self.cov_matrix)
         R = self.raw_fitness(population, matrix_ret_risks)
         D = self.calculate_density(matrix_ret_risks, k)
         F = R + D
@@ -122,9 +86,9 @@ class SPEA2:
         domination_matrix = np.zeros((N, N), dtype=bool)
         for i in range(N):
             for j in range(i + 1, N):
-                if self.dominates(matrix_ret_risks, i, j):
+                if utils.dominates(matrix_ret_risks, i, j):
                     domination_matrix[i, j] = True
-                elif self.dominates(matrix_ret_risks, j, i):
+                elif utils.dominates(matrix_ret_risks, j, i):
                     domination_matrix[j, i] = True
         return domination_matrix
 
@@ -175,7 +139,7 @@ class SPEA2:
         - truncated_population: The truncated population.
         """
         N = len(population)
-        matrix_ret_risks = self.precompute_objectives(population)
+        matrix_ret_risks = utils.precompute_objectives(population, self.returns, self.cov_matrix)
         points = matrix_ret_risks.T  # shape (N, 2)
 
         # Compute pairwise distances
@@ -214,28 +178,13 @@ class SPEA2:
         
         return [population[i] for i in remaining]
 
-
-    def binary_tournament(self, population, fitness):
-        """
-        Perform binary tournament selection.
-        
-        Parameters:
-        - population: The current population.
-        - fitness: A 1D array representing the fitness of each individual in the population.
-        
-        Returns:
-        - selected: The selected individual.
-        """
-        ind1, ind2 = random.sample(range(len(population)), 2)
-        return population[ind1] if fitness[ind1] < fitness[ind2] else population[ind2]
-
-
     def vary(self, population):
         """
         Apply genetic operations (crossover and mutation) to the population.
 
         Parameters:
         - population: The current population.
+        - fitness: The fitness values of the population.
 
         Returns:
         - new_population: The new population after genetic operations.
@@ -244,10 +193,10 @@ class SPEA2:
         new_population = []
         fitness = self.calculate_total_fitness(population)
         for _ in range(self.N_pop):
-            parent1 = self.binary_tournament(population, fitness)
-            parent2 = self.binary_tournament(population, fitness)
+            parent1 = utils.binary_tournament(population, fitness)
+            parent2 = utils.binary_tournament(population, fitness)
             while utils.evaluate(parent1, self.returns, self.cov_matrix) == utils.evaluate(parent2, self.returns, self.cov_matrix):
-                parent2 = self.binary_tournament(population, fitness)
+                parent2 = utils.binary_tournament(population, fitness)
             child = utils.crossover(parent1, parent2, self.num_assets, self.cardinality)
             child = utils.mutation(child, self.mutation_rate)
             new_population.append(child)
@@ -267,6 +216,8 @@ class SPEA2:
         started_time = time.time()
         while i < self.generations:
             print(f"Generation: {i}")
+            #self.population_A = self.update(self.population_A, self.population_B)
+            #self.population_B = self.vary(self.population_A)
             self.population_A = self.update(self.population_A, self.population_B)
             offsprings = self.vary(self.population_B)
             self.population_B = self.update(self.population_B, offsprings)
@@ -281,7 +232,7 @@ class SPEA2:
 
     
     def plot_pareto_front(self):
-        pareto_points = self.precompute_objectives(self.population_A)
+        pareto_points = utils.precompute_objectives(self.population_A, self.returns, self.cov_matrix)
         
         plt.figure(figsize=(8, 6))
         plt.scatter(pareto_points[1, :], pareto_points[0, :], color='red', label='Pareto Front')

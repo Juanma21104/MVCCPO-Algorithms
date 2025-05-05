@@ -26,6 +26,25 @@ def initialize_population(N_pop, num_assets, cardinality):
         
     return population_A, np.array(population_B)
 
+def precompute_objectives(population, returns, cov_matrix):
+    """
+    Precompute the returns and risks for all individuals in the population.
+    
+    Parameters:
+    - population: A 2D array representing the population of portfolios.
+    - returns: A 1D array representing the expected returns of each asset.
+    - cov_matrix: A 2D array representing the covariance matrix of the assets.
+    
+    Returns:
+    - matrix: A 2D array containing the returns and risks of the population.
+    """
+    N = len(population)
+    matrix = np.zeros((2, N))
+    for i in range(N):
+        ret, risk = evaluate(population[i], returns, cov_matrix)
+        matrix[0][i] = ret
+        matrix[1][i] = risk
+    return matrix
 
 def evaluate(individual, returns, cov_matrix):
     """
@@ -42,6 +61,37 @@ def evaluate(individual, returns, cov_matrix):
     risk = np.dot(individual.T, np.dot(cov_matrix, individual)) # Risk = w T * cov_matrix * w
     return expected_return, risk
 
+def dominates(matrix_ret_risks, ind1, ind2):
+    """
+    Check if individual 1 dominates individual 2.
+    
+    Parameters:
+    - matrix_ret_risks: A 2D array containing the returns and risks of the population.
+        - ind1: First individual (portfolio).
+        - ind2: Second individual (portfolio).
+
+    Returns:
+    - True if ind1 dominates ind2, False otherwise.
+    """
+    return1 = matrix_ret_risks[0][ind1]
+    risk1 = matrix_ret_risks[1][ind1]
+    return2 = matrix_ret_risks[0][ind2]
+    risk2 = matrix_ret_risks[1][ind2]       
+    return (return1 >= return2 and risk1 <= risk2) and (return1 > return2 or risk1 < risk2)
+
+def binary_tournament(population, fitness):
+    """
+    Perform binary tournament selection.
+    
+    Parameters:
+    - population: The current population.
+    - fitness: A 1D array representing the fitness of each individual in the population.
+    
+    Returns:
+    - selected: The selected individual.
+    """
+    ind1, ind2 = random.sample(range(len(population)), 2)
+    return population[ind1] if fitness[ind1] < fitness[ind2] else population[ind2]
 
 def crossover(parent1, parent2, num_assets, cardinality):
     """
@@ -94,10 +144,14 @@ def mutation(individual, mutation_rate):
     """
     for i in range(len(individual)):
         if random.random() < mutation_rate:
-            individual[i] *= random.uniform(0.9, 1.1) # Mutation 10%
+            individual[i] *= random.uniform(0.75, 1.25) # Mutation 25%
     individual = individual / individual.sum()
     #individual = utils.projection(individual) # Normalize the mutated individual to sum to 1
     return individual
+
+
+
+
 
 def projection(y):
     """
@@ -115,7 +169,7 @@ def projection(y):
 
     print(z)
     print(y_indexes)
-
+    z2 = np.zeros(len(y))
     z2[y_indexes] = z
 
     print(len(np.where(z2 > 0)[0]))

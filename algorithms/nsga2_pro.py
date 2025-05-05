@@ -35,17 +35,13 @@ class NSGA2Pro:
         dominance_count = np.zeros(population_size) # A 2D array that count of how many individuals dominate individual i
         dominated_sets = [[] for _ in range(population_size)] # List of dominated sets for each individual
 
-        matrix_ret_risks = np.zeros((2,population_size)) # Matrix to store the returns and risks of the population
-        for i in range(population_size):
-            returns, risk = utils.evaluate(population[i], self.returns, self.cov_matrix)
-            matrix_ret_risks[1][i] = risk # Store the risk in the matrix
-            matrix_ret_risks[0][i] = returns
+        matrix_ret_risks = utils.precompute_objectives(population, self.returns, self.cov_matrix)
         
         for i in range(population_size): # Index and portfolio
             for j in range(population_size): # Compare with all other portfolios
-                if self.dominates(matrix_ret_risks, i, j): # If i dominates j
+                if utils.dominates(matrix_ret_risks, i, j): # If i dominates j
                     dominated_sets[i].append(j)
-                elif self.dominates(matrix_ret_risks, j, i): # If j dominates i
+                elif utils.dominates(matrix_ret_risks, j, i): # If j dominates i
                     dominance_count[i] += 1
             if dominance_count[i] == 0: # If no one dominates this individual, it belongs to the first front
                 fronts[0].append(i)
@@ -63,24 +59,6 @@ class NSGA2Pro:
 
         
         return fronts[:-1] # Remove the last empty front
-    
-    def dominates(self, matrix_ret_risks, ind1, ind2):
-        """
-        Check if individual 1 dominates individual 2.
-        
-        Parameters:
-        - ind1: First individual (portfolio).
-        - ind2: Second individual (portfolio).
-
-        Returns:
-        - True if ind1 dominates ind2, False otherwise.
-        
-        """
-        return1 = matrix_ret_risks[0][ind1]
-        risk1 = matrix_ret_risks[1][ind1]
-        return2 = matrix_ret_risks[0][ind2]
-        risk2 = matrix_ret_risks[1][ind2]       
-        return (return1 >= return2 and risk1 <= risk2) and (return1 > return2 or risk1 < risk2)
     
     def crowding_distance_assignment(self, front, population):
         """
@@ -226,8 +204,11 @@ class NSGA2Pro:
         while i < self.generations:
             print("Generation: ", i)
             self.population_A = self.best(self.population_A, self.population_B)
+            self.population_B = self.vary(self.population_A)
+
+            """self.population_A = self.best(self.population_A, self.population_B)
             offsprings = self.vary(self.population_B)
-            self.population_B = self.best(self.population_B, offsprings)
+            self.population_B = self.best(self.population_B, offsprings)"""
             i += 1            
 
         end_time = time.time()
