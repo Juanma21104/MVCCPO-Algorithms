@@ -1,10 +1,10 @@
 import numpy as np
 import random
+from scipy.spatial.distance import cdist
 
 def initialize_population(N_pop, num_assets, cardinality):
     """
     Initialize the population with random portfolios.
-
 
     Returns:
     - population A: A 2D empty array
@@ -150,8 +150,60 @@ def mutation(individual, mutation_rate):
     return individual
 
 
+def raw_fitness(population, matrix_ret_risks):
+    N = len(population)
+    dominance_count = np.zeros(N) # A 2D array that count of how many individuals dominate individual i
+    dominated_sets = [[] for _ in range(N)] # List of dominated sets for each individual
+    
+    for i in range(N): # Index and portfolio
+        for j in range(N): # Compare with all other portfolios
+            if dominates(matrix_ret_risks, i, j): # If i dominates j
+                dominated_sets[i].append(j)
+            elif dominates(matrix_ret_risks, j, i): # If j dominates i
+                dominance_count[i] += 1
 
+    raw_fitness_values = np.zeros(N)
+    for i in range(N):
+        raw_fitness_values[i] = dominance_count[i] / (len(dominated_sets[i]) if len(dominated_sets[i]) > 0 else 1)
 
+    return raw_fitness_values
+    
+
+def calculate_density(matrix_ret_risks, k=1):
+    """
+    Calculate the density of each individual in the population.
+    
+    Parameters:
+    - matrix_ret_risks: A 2D array containing the returns and risks of the population.
+    - k: Number of neighbors to consider.
+    
+    Returns:
+    - D: A 1D array representing the density of each individual in the population.
+    """
+    points = matrix_ret_risks.T  # Shape (N, 2) 
+    distances = cdist(points, points) # Compute distance between all points
+    np.fill_diagonal(distances, np.inf) # Set diagonal to infinity to avoid self-comparison
+    kth_distances = np.partition(distances, k, axis=1)[:, k] # k-th smallest distance for each point
+    return 1.0 / (kth_distances + 2.0) # Density is the inverse of the k-th smallest distance
+
+def calculate_total_fitness(population, returns, cov_matrix, k=1, return_matrix=False):
+    """Calculate the total fitness of each individual in the population.
+    
+    Parameters:
+    - population: A 2D array representing the population of portfolios.
+    - returns: A 1D array representing the expected returns of each asset.
+    - cov_matrix: A 2D array representing the covariance matrix of the assets.
+    - k: Number of neighbors to consider.
+    
+    Returns:
+    - F: A 1D array representing the total fitness of each individual in the population.
+    - matrix_ret_risks: A 2D array containing the returns and risks of the population.
+    """
+    matrix_ret_risks = precompute_objectives(population, returns, cov_matrix)
+    R = raw_fitness(population, matrix_ret_risks)
+    D = calculate_density(matrix_ret_risks, k)
+    F = R + D
+    return (F, matrix_ret_risks) if return_matrix else F
 
 def projection(y):
     """
@@ -182,12 +234,46 @@ def projection_simplex(y):
     Proyecta el vector y sobre la simplex de probabilidad:
         Ω2 := {x ∈ ℝ^S : x ≥ 0, sum(x) = 1}
     """
+    S = len(y)
     y = np.asarray(y)
-    # Ordenamos y de mayor a menor
     u = np.sort(y)[::-1]
+    print(u)
     cssv = np.cumsum(u)
-    rho = np.nonzero(u + (1 - cssv) / (np.arange(1, len(y)+1)) > 0)[0][-1]
-    theta = (1 - cssv[rho]) / (rho + 1)
-    z = np.maximum(y + theta, 0)
+    print(cssv)
+    rho = np.max(np.nonzero(u + (1 - cssv) / (np.arange(1, S + 1)) > 0)[0])
+    lambdaa = (1 - cssv[rho]) / (rho + 1)
+    z = np.maximum(y + lambdaa, 0)
+    return z
+
+
+def sum_until(y, j):
+    sum = 0
+    i = 0
+    while i < j:
+        sum += y[i]
+        i += 1
+    return sum
+    
+def projection_probability_simplex(y):
+    """
+    Proyecta el vector y sobre la simplex de probabilidad:
+        Ω2 := {x ∈ ℝ^S : x ≥ 0, sum(x) = 1}
+    """
+    S = len(y)
+    y = np.asarray(y)
+    u = np.sort(y)[::-1]
+    rho_candidates = []
+    j = 0
+    while j < S:
+        candidate = u[j] + (1 / (j + 1)) * (1 - sum_until(u, j)) / (j + 1)
+        if candidate > 0:
+            rho_candidates.append(candidate)
+        j += 1
+    rho = np.max(rho_candidates)
+    lambdaa = (1 / rho) * (1 - sum_until(u, rho))
+    z = []
+    for i in range(S):
+        z.append(max(y[i] + lambdaa, 0))
+    z = np.asarray(z)
     return z
 

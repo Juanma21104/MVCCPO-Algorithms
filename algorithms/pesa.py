@@ -221,17 +221,14 @@ class PESA:
         
         for ind in population_B:
             if (self.is_not_dominated(ind, population_A)):
-                population_A = np.vstack((population_A, ind))
-                if len(population_A) > self.N_arc:
-                    individual_to_remove = np.argmax(self.fitness(population_A))
-                    population_A = np.delete(population_A, individual_to_remove, axis=0)
-            else:
-                if (self.is_not_dominated(ind, population_B)):
-                    for idx, ind2 in enumerate(population_A):
+                for idx, ind2 in enumerate(population_A):
                         if self.dominates(ind, ind2):
                             population_A = np.delete(population_A, idx, axis=0)
                             population_A = np.vstack((population_A, ind))
-                            break
+                population_A = np.vstack((population_A, ind))
+                if len(population_A) > self.N_arc:
+                    individual_to_remove = np.argmax(self.fitness(population_A))
+                    population_A = np.delete(population_A, individual_to_remove, axis=0) 
 
         return population_A
 

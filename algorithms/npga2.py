@@ -142,10 +142,7 @@ class NPGA2:
             else:
                 self.population_A = self.population_B
             
-            offsprings = self.vary(self.population_A)
-            self.population_B = self.update(self.population_B, offsprings)
-
-            #self.population_B = self.vary(self.population_A)
+            self.population_B = self.vary(self.population_A)
             t += 1
         self.population_A = self.update(self.population_A, self.population_B)
         print(f"Execution time: {time.time() - start:.2f}s")

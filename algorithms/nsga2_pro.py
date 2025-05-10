@@ -173,7 +173,7 @@ class NSGA2Pro:
         return -1
 
 
-    def best(self, population_A, population_B):
+    def update(self, population_A, population_B):
         """
         Select the best individuals from the archive population and the current population.
 
@@ -203,8 +203,8 @@ class NSGA2Pro:
         
         while i < self.generations:
             print("Generation: ", i)
-            self.population_A = self.best(self.population_A, self.population_B)
-            self.population_B = self.vary(self.population_A)
+            self.population_A = self.update(self.population_A, self.population_B)
+            self.population_B = self.vary(self.population_B)
 
             """self.population_A = self.best(self.population_A, self.population_B)
             offsprings = self.vary(self.population_B)
@@ -213,7 +213,7 @@ class NSGA2Pro:
 
         end_time = time.time()
         elapsed_time = end_time - started_time
-        self.population_A = self.best(self.population_A, self.population_B)
+        self.population_A = self.update(self.population_A, self.population_B)
         print(f"Execution time: {elapsed_time:.2f} seconds")
 
         return self.population_A

@@ -19,58 +19,6 @@ class SPEA2:
         self.population_A = utils.initialize_population(self.N_arc, self.num_assets, self.cardinality)[0] # Archive population (A_0)
         self.population_B = utils.initialize_population(self.N_pop, self.num_assets, self.cardinality)[1] # Usual population (B_0)
 
-    def raw_fitness(self, population, matrix_ret_risks):
-        N = len(population)
-        dominance_count = np.zeros(N) # A 2D array that count of how many individuals dominate individual i
-        dominated_sets = [[] for _ in range(N)] # List of dominated sets for each individual
-        
-        for i in range(N): # Index and portfolio
-            for j in range(N): # Compare with all other portfolios
-                if utils.dominates(matrix_ret_risks, i, j): # If i dominates j
-                    dominated_sets[i].append(j)
-                elif utils.dominates(matrix_ret_risks, j, i): # If j dominates i
-                    dominance_count[i] += 1
-
-        raw_fitness_values = np.zeros(N)
-        for i in range(N):
-            raw_fitness_values[i] = dominance_count[i] / (len(dominated_sets[i]) if len(dominated_sets[i]) > 0 else 1)
-
-        return raw_fitness_values
-        
-
-    def calculate_density(self, matrix_ret_risks, k=1):
-        """
-        Calculate the density of each individual in the population.
-        
-        Parameters:
-        - matrix_ret_risks: A 2D array containing the returns and risks of the population.
-        - k: Number of neighbors to consider.
-        
-        Returns:
-        - D: A 1D array representing the density of each individual in the population.
-        """
-        points = matrix_ret_risks.T  # Shape (N, 2) 
-        distances = cdist(points, points) # Compute distance between all points
-        np.fill_diagonal(distances, np.inf) # Set diagonal to infinity to avoid self-comparison
-        kth_distances = np.partition(distances, k, axis=1)[:, k] # k-th smallest distance for each point
-        return 1.0 / (kth_distances + 2.0) # Density is the inverse of the k-th smallest distance
-
-    def calculate_total_fitness(self, population, k=1, return_matrix=False):
-        """Calculate the total fitness of each individual in the population.
-        
-        Parameters:
-        - population: A 2D array representing the population of portfolios.
-        - k: Number of neighbors to consider.
-        
-        Returns:
-        - F: A 1D array representing the total fitness of each individual in the population.
-        - matrix_ret_risks: A 2D array containing the returns and risks of the population.
-        """
-        matrix_ret_risks = utils.precompute_objectives(population, self.returns, self.cov_matrix)
-        R = self.raw_fitness(population, matrix_ret_risks)
-        D = self.calculate_density(matrix_ret_risks, k)
-        F = R + D
-        return (F, matrix_ret_risks) if return_matrix else F
 
     def compute_dominance_matrix(self, matrix_ret_risks):
         """
@@ -105,7 +53,7 @@ class SPEA2:
 
         """
         combined = np.vstack((population_A, population_B))
-        fitness, matrix_ret_risks = self.calculate_total_fitness(combined, return_matrix=True)
+        fitness, matrix_ret_risks = utils.calculate_total_fitness(combined, self.returns, self.cov_matrix, return_matrix=True)
 
 
         dom_matrix = self.compute_dominance_matrix(matrix_ret_risks)
@@ -191,7 +139,7 @@ class SPEA2:
         """
 
         new_population = []
-        fitness = self.calculate_total_fitness(population)
+        fitness = utils.calculate_total_fitness(population, self.returns, self.cov_matrix)
         for _ in range(self.N_pop):
             parent1 = utils.binary_tournament(population, fitness)
             parent2 = utils.binary_tournament(population, fitness)

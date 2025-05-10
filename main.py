@@ -5,6 +5,7 @@ from algorithms.spea2 import SPEA2
 from algorithms.npga2 import NPGA2
 from algorithms.soea import SOEA
 from algorithms.pesa import PESA
+from algorithms.e_moea import E_MOEA
 from algorithms.data_loader import load_dataset
 import numpy as np
 import algorithms.utils as utils
@@ -55,9 +56,16 @@ if __name__ == "__main__":
     npga2.plot_pareto_front()"""
 
     
-    pesa = PESA(N_pop, N_arc, num_assets, returns, cov_matrix, cardinality, mutation_rate - 0.1, generations)
+    """pesa = PESA(N_pop, N_arc, num_assets, returns, cov_matrix, cardinality, mutation_rate - 0.1, generations)
     pesa.evolve()
-    pesa.plot_pareto_front()
+    pesa.plot_pareto_front()"""
+
+
+    e = 0.00438
+    e_moea = E_MOEA(N_pop, None, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations, e)
+    e_moea.evolve()
+    e_moea.plot_pareto_front()
+    
 
 
     """soea = SOEA(100, 1, num_assets, returns, cov_matrix, cardinality, mutation_rate, 100000, trade_off_coeff)
