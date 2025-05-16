@@ -1,63 +1,24 @@
+import random
 import time
 import numpy as np
-import random
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
+import algorithms.utils as utils
 
 class NSGA2:
-    def __init__(self, population_size, generations, assets, returns, cov_matrix, cardinality, mutation_prob):
-        """
-        NSGA-II algorithm for portfolio optimization.
+    def __init__(self, N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations):
+        self.N_arc = N_arc # Archive population size (A_0)
+        self.N_pop = N_pop # Usual population size (B_0)
+        self.cardinality = cardinality # Number of assets in the portfolio
+        self.num_assets = num_assets # Number of assets
+        self.returns = returns # Returns of the assets
+        self.cov_matrix = cov_matrix # Covariance matrix of the assets
+        self.mutation_rate = mutation_rate # Mutation rate
+        self.generations = generations # Number of genetations
 
-        Parameters:
-        - population_size: Size of the population.
-        - generations: Number of generations to evolve.
-        - assets: Number of assets in the portfolio.
-        - returns: Expected returns of the assets.
-        - cov_matrix: Covariance matrix of the assets.
-        - cardinality: Number of assets to include in the portfolio.
-        - population: Initial population of portfolios.
-        - mutation_prob: Probability of mutation.
-        """
-        self.population_size = population_size
-        self.generations = generations
-        self.assets = assets
-        self.returns = returns
-        self.cov_matrix = cov_matrix
-        self.cardinality = cardinality
-        self.population = self.initialize_population()
-        self.mutation_prob = mutation_prob
+        populations = utils.initialize_population(self.N_pop, self.num_assets, self.cardinality)
+        self.population_A = populations[0] # Archive population (A_0)
+        self.population_B = populations[1] # Usual population (B_0)
 
-    def initialize_population(self):
-        """
-        Initialize the population with random portfolios.
-
-        Returns:
-        - population: A 2D array representing the initial population of portfolios.
-        """
-        population = []
-        for _ in range(self.population_size):
-            individual = np.zeros(self.assets)
-            selected_assets = random.sample(range(self.assets), self.cardinality) # Select random assets to include in the portfolio
-            for asset in selected_assets:
-                individual[asset] = random.uniform(0, 1)
-            individual /= individual.sum()
-            population.append(individual)
-        return np.array(population)
-    
-    def evaluate(self, individual):
-        """
-        Evaluate the portfolio represented by the individual.
-        
-        Parameters:
-        - individual: A portfolio represented as a vector of weights.
-        
-        Returns:
-        - expected_return: Expected return of the portfolio.
-        - risk: Risk (variance) of the portfolio.
-        """
-        expected_return = np.dot(individual, self.returns) # Expected return is the dot product of weights and expected returns
-        risk = np.dot(individual.T, np.dot(self.cov_matrix, individual)) # Risk = w T * cov_matrix * w
-        return expected_return, risk
 
     def fast_non_dominated_sort(self, population):
         """
@@ -68,24 +29,21 @@ class NSGA2:
 
         Returns:
         - fronts: A list of fronts, where each front contains the indices of the individuals in that front.
-        
         """
+        
         fronts = [[]] # List of fronts
         population_size = len(population) # Size of the population 
-        dominance_count = np.zeros(population_size) # A 2D array that count of how many individuals dominate individual i
+        dominance_count = np.zeros(population_size) # A 2D array that count of how many individuals dominate each individual
         dominated_sets = [[] for _ in range(population_size)] # List of dominated sets for each individual
 
-        matrix_ret_risks = np.zeros((2,population_size)) # Matrix to store the returns and risks of the population
-        for i in range(population_size):
-            returns, risk = self.evaluate(population[i])
-            matrix_ret_risks[1][i] = risk # Store the risk in the matrix
-            matrix_ret_risks[0][i] = returns
+        # Returns a matrix with the returns and risks of each individual
+        matrix_ret_risks = utils.precompute_objectives(population, self.returns, self.cov_matrix) 
         
-        for i in range(population_size): # Index and portfolio
-            for j in range(population_size): # Compare with all other portfolios
-                if self.dominates2(matrix_ret_risks, i, j): # If i dominates j
+        for i in range(population_size):
+            for j in range(population_size):
+                if utils.dominates(matrix_ret_risks, i, j): # If i dominates j
                     dominated_sets[i].append(j)
-                elif self.dominates2(matrix_ret_risks, j, i): # If j dominates i
+                elif utils.dominates(matrix_ret_risks, j, i): # If j dominates i
                     dominance_count[i] += 1
             if dominance_count[i] == 0: # If no one dominates this individual, it belongs to the first front
                 fronts[0].append(i)
@@ -94,56 +52,23 @@ class NSGA2:
         while fronts[i]:
             next_front = [] # Next front to be filled
             for p in fronts[i]: # For each individual in the current front
-                for q in dominated_sets[p]: # For each individual that this individual dominates
+                for q in dominated_sets[p]: # For each individual that individual p dominates
                     dominance_count[q] -= 1
                     if dominance_count[q] == 0: # If this individual is no longer dominated
                         next_front.append(q)
             i += 1
             fronts.append(next_front) # Add the next front to the list of fronts
 
-        
         return fronts[:-1] # Remove the last empty front
     
-    def dominates(self, ind1, ind2):
-        """
-        Check if individual 1 dominates individual 2.
-        
-        Parameters:
-        - ind1: First individual (portfolio).
-        - ind2: Second individual (portfolio).
 
-        Returns:
-        - True if ind1 dominates ind2, False otherwise.
-        
-        """
-        return1, risk1 = self.evaluate(ind1) # Evaluate the first individual
-        return2, risk2 = self.evaluate(ind2) # Evaluate the second individual        
-        return (return1 >= return2 and risk1 <= risk2) and (return1 > return2 or risk1 < risk2)
-    
-    def dominates2(self, matrix_ret_risks, ind1, ind2):
-        """
-        Check if individual 1 dominates individual 2.
-        
-        Parameters:
-        - ind1: First individual (portfolio).
-        - ind2: Second individual (portfolio).
-
-        Returns:
-        - True if ind1 dominates ind2, False otherwise.
-        
-        """
-        return1 = matrix_ret_risks[0][ind1]
-        risk1 = matrix_ret_risks[1][ind1]
-        return2 = matrix_ret_risks[0][ind2]
-        risk2 = matrix_ret_risks[1][ind2]       
-        return (return1 >= return2 and risk1 <= risk2) and (return1 > return2 or risk1 < risk2)
-    
-    def crowding_distance_assignment(self, front):
+    def crowding_distance_assignment(self, front, population):
         """
         Assign crowding distance to each individual in the front.
 
         Parameters:
         - front: A list of indices representing the individuals in the front.
+        - population: A 2D array representing the population of portfolios.
 
         Returns:
         - distances: A 1D array representing the crowding distance of each individual in the front.
@@ -151,138 +76,192 @@ class NSGA2:
 
         distances = np.zeros(len(front)) # Initialize distances to zero
         for m in range(2): # For each objective (expected return and risk)
-            front.sort(key=lambda x: self.evaluate(self.population[x])[m]) # Sort the front by the m-th objective
+            front.sort(key=lambda x: utils.evaluate(population[x], self.returns, self.cov_matrix)[m]) # Sort the front by the m-th objective
             distances[0] = distances[-1] = np.inf # Assign infinite distance to the limits
-            min_val = self.evaluate(self.population[front[0]])[m]
-            max_val = self.evaluate(self.population[front[-1]])[m]
+            min_val = utils.evaluate(population[front[0]], self.returns, self.cov_matrix)[m]
+            max_val = utils.evaluate(population[front[-1]], self.returns, self.cov_matrix)[m]
             for i in range(1, len(front) - 1): # For each individual in the front (except the limits)
                 if max_val - min_val == 0: # Avoid division by zero
                     distances[i] = 0
                 else:
                     # Calculate the crowding distance, which is the normalized distance between the two neighbors
-                    distances[i] += (self.evaluate(self.population[front[i + 1]])[m] -
-                                 self.evaluate(self.population[front[i - 1]])[m]) / (max_val - min_val)
+                    distances[i] += (utils.evaluate(population[front[i + 1]], self.returns, self.cov_matrix)[m] -
+                                 utils.evaluate(population[front[i - 1]], self.returns, self.cov_matrix)[m]) / (max_val - min_val)
                  
         return distances
-    
-    def selection(self, fronts):
+
+
+    def selection(self, fronts, population, population_size):
         """
         Select individuals for the next generation based on non-dominated sorting and crowding distance.
         
         Parameters:
         - fronts: A list of fronts, where each front contains the indices of the individuals in that front.
+        - population: A 2D array representing the population of portfolios.
+        - population_size: The size of the objective population.
 
         Returns:
         - new_population: A 2D array representing the selected individuals for the next generation.
-
         """
+
         new_population = [] # Initialize the new population (index of individuals)
         for front in fronts:
-            if len(new_population) + len(front) <= self.population_size: # If the new population size does not exceed the limit
+            if len(new_population) + len(front) <= population_size: # If the new population size does not exceed the limit
                 new_population.extend(front)
             else:
-                distances = self.crowding_distance_assignment(front) # Calculate the crowding distance for the front
-                sorted_front = sorted(zip(front, distances), key=lambda x: -x[1]) # Sort by distance, highest to lowest
-                new_individuals = sorted_front[:self.population_size - len(new_population)] # Select the best individuals based on distance
+                distances = self.crowding_distance_assignment(front, population) # Calculate the crowding distance for the front
+                sorted_front = sorted(zip(front, distances), key=lambda x: -x[1]) # Zip the front with the distances and sort by distance (highest to lowest (-x[1]))
+                new_individuals = sorted_front[:population_size - len(new_population)] # Select the best individuals based on distance
                 new_population.extend([x[0] for x in new_individuals]) # Add the selected individuals to the new population
-        return np.array([self.population[i] for i in new_population]) # Convert indices to actual individuals
-    
-    def crossover(self, parent1, parent2):
+        return np.array([population[i] for i in new_population]) # Convert indices to actual individuals
+
+
+    def vary(self, population):
         """
-        Perform crossover between two parents to create one child.
+        Apply genetic operations (crossover and mutation) to the population.
+
+        Parameters:
+        - population: The current population.
+
+        Returns:
+        - new_population: The new population after genetic operations.
+        """
+
+        new_population = []
+        fronts = self.fast_non_dominated_sort(population)
+
+        distances = [] # List of crowding distances for each front
+        for front in fronts:
+            distances.append(self.crowding_distance_assignment(front, population)) # Calculate the crowding distance for the front
+        
+        for _ in range(self.N_pop): # Create a new population
+            parents = self.binary_tournament(population, fronts, distances) # Select two parents
+            child = utils.crossover(population[parents[0]], population[parents[1]], self.num_assets, self.cardinality) # Crossover
+            child = utils.mutation(child, self.mutation_rate) # Mutation
+            new_population.append(child)
+        return np.array(new_population)
+    
+
+    def binary_tournament(self, population, fronts, crowding_distance):
+        """
+        Perform a binary tournament to select two parents.
         
         Parameters:
-        - parent1: First parent (portfolio).
-        - parent2: Second parent (portfolio).
+        - population: The current population.
+        - fronts: A list of fronts, where each front contains the indices of the individuals in that front.
+        - crowding_distance: A list of crowding distances for each individual.
         
         Returns:
-        - child: Child (portfolio) created from the parents.
-
+        - selected_parents: The selected individuals.
         """
 
-        child = np.zeros(self.assets)
-        parent1_indexes = np.where(parent1 > 0)[0]
-        parent2_indexes = np.where(parent2 > 0)[0]
-
-        equal_indexes = np.intersect1d(parent1_indexes, parent2_indexes)
-
-        for index in equal_indexes:
-            if random.random() > 0.5:
-                child[index] = parent1[index]
+        selected_parents = []
+        for _ in range(2): # Select two parents
+            candidates = random.sample(range(len(population)), 2) # Select two random individuals
+            front_candidate1 = self.getIndexFront(fronts, candidates[0]) # Get the front of the first candidate
+            front_candidate2 = self.getIndexFront(fronts, candidates[1]) # Get the front of the second candidate
+            
+            pos_in_front_ind1 = fronts[front_candidate1].index(candidates[0]) # Get the position of the first candidate in the front
+            pos_in_front_ind2 = fronts[front_candidate2].index(candidates[1]) # Get the position of the second candidate in the front
+            if front_candidate1 == front_candidate2: # If both candidates are in the same front
+                if crowding_distance[front_candidate1][pos_in_front_ind1] > crowding_distance[front_candidate2][pos_in_front_ind2]: # Select the candidate with the highest crowding distance
+                    selected_parents.append(candidates[0])
+                else:
+                    selected_parents.append(candidates[1])
             else:
-                child[index] = parent2[index]
-      
-        parent1_indexes = np.setdiff1d(parent1_indexes, equal_indexes)
-        parent2_indexes = np.setdiff1d(parent2_indexes, equal_indexes)
+                if front_candidate1 < front_candidate2: # Select the candidate from the front with the lower index
+                    selected_parents.append(candidates[0])
+                else:
+                    selected_parents.append(candidates[1])
+        return np.array(selected_parents)
 
-        for i in range(self.cardinality - len(equal_indexes)):
-            if random.random() > 0.5:
-                child[parent1_indexes[i]] = parent1[parent1_indexes[i]]
-            else:
-                child[parent2_indexes[i]] = parent2[parent2_indexes[i]]
 
-        return child / child.sum()
-    
-    
-    def mutation(self, individual):
+    def getIndexFront(self, front, index):
         """
-        Perform mutation on an individual.
+        Get the index of the front that contains the given index.
         
         Parameters:
-        - individual: Individual (portfolio) to mutate.
+        - front: A list of fronts, where each front contains the indices of the individuals in that front.
+        - index: The index of the individual.
         
         Returns:
-        - mutated_individual: Mutated individual (portfolio).
-        
+        - The index of the front that contains the given index.
         """
-        if random.random() < self.mutation_prob:
-            for i in range(len(individual)):
-                if random.random() < self.mutation_prob:
-                    individual[i] *= random.uniform(0.9, 1.1) # Mutation 10%
-            individual /= individual.sum() # Normalize the mutated individual to sum to 1
-        return individual
-    
+
+        for i, subarray in enumerate(front):
+            if index in subarray:
+                return i
+
+        return -1
+
+
+    def update(self, population_A, population_B):
+        """
+        Select the best individuals from the archive population and the current population.
+
+        Parameters:
+        - population_A: The archive population.
+        - population_B: The current population.
+
+        Returns:
+        - best_population: The combined best individuals from both populations.
+        """
+
+        combined_population = np.vstack((population_A, population_B)) # Combine the two populations
+        fronts = self.fast_non_dominated_sort(combined_population) # Get the fronts
+        selected_population = self.selection(fronts, combined_population, self.N_arc) # Select the best individuals
+
+        return selected_population
+
+
     def evolve(self):
         """
         Evolve the population over a number of generations using NSGA-II.
 
         Returns:
         - population: The final population after evolution.
-
         """
-        start_total_time = time.time()
-        for i in range(self.generations):
-            inicio_iter = time.time()
-            print("******* Generation: ", i)
-            offspring = []
-            for _ in range(self.population_size): 
-                parents = random.sample(list(self.population), 2) # Select two parents randomly
-                child = self.crossover(parents[0], parents[1]) # Perform crossover
-                offspring.append(self.mutation(child)) # Apply mutation to the children
-            self.population = np.vstack((self.population, np.array(offspring))) # Combine parents and offspring
-            inicio_fast_dominated_sort = time.time()
-            fronts = self.fast_non_dominated_sort(self.population)
-            finally_sort = time.time()
-            print("Time taken for fast non-dominated sorting:", finally_sort - inicio_fast_dominated_sort, "seconds")
-            self.population = self.selection(fronts) # Select the next generation based on non-dominated sorting and crowding distance
-            final_iter = time.time()
-            print("Time taken for generation", i, ":", final_iter - inicio_iter, "seconds")
-        
-        end_total_time = time.time()
-        print("### Total solutions:", len(fronts[0]))
-        print("### Total time taken:", end_total_time - start_total_time, "seconds")
 
-        return self.population
-    
-    def plot_pareto_front(self):
-        pareto_front = self.fast_non_dominated_sort(self.population)[0]
-        pareto_points = np.array([self.evaluate(self.population[i]) for i in pareto_front])
+        i = 0
+        started_time = time.time()
         
+        while i < self.generations:
+            print("Generation: ", i)
+            self.population_A = self.update(self.population_A, self.population_B)
+            self.population_B = self.vary(self.population_A)
+            i += 1            
+
+        self.population_A = self.update(self.population_A, self.population_B)
+        elapsed_time = time.time() - started_time
+        print(f"Execution time: {elapsed_time:.3f} seconds")
+
+        return self.population_A
+    
+
+    def plot_pareto_front(self):
+        """
+        Plot the Pareto front of the population.
+        """
+        
+        pareto_points = utils.precompute_objectives(self.population_A, self.returns, self.cov_matrix)
+
+        lista = np.zeros(self.cardinality + 1)
+
+        for ind in self.population_A:
+            indices = len(np.where(ind > 0)[0])
+            if(indices > self.cardinality):
+                print(" ***** IND MALO *******")
+                print(ind)
+            lista[indices] += 1
+
+        for idx, numero in enumerate(lista):
+            print("Con ", idx, " activos hay ", int(numero), " soluciones")
+
         plt.figure(figsize=(8, 6))
-        plt.scatter(pareto_points[:, 1], pareto_points[:, 0], color='red', label='Pareto Front')
-        plt.xlabel('Variance')
-        plt.ylabel('Mean')
-        plt.title('Pareto front - Portfolio Optimization')
-        plt.legend()
+        plt.scatter(pareto_points[1, :], pareto_points[0, :], color='red', label='NSGA-II')
+        plt.xlabel('Variance', fontweight='bold')
+        plt.ylabel('Mean', fontweight='bold')
+        plt.title('Portfolio Optimization', fontweight='bold')
+        plt.legend(loc='lower right')
         plt.grid()
         plt.show()

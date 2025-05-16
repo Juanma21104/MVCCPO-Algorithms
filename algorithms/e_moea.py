@@ -1,22 +1,21 @@
 import algorithms.utils as utils
 import time
-import random
 from matplotlib import pyplot as plt
 import numpy as np
 from scipy.spatial.distance import cdist
 
 
 class E_MOEA:
-    def __init__(self, N_pop, N_arc, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations, e):
-        self.N_pop = N_pop
-        self.N_arc = N_arc
-        self.num_assets = num_assets
-        self.returns = returns
-        self.cov_matrix = cov_matrix
-        self.cardinality = cardinality
-        self.mutation_rate = mutation_rate
-        self.generations = generations
-        self.e = e
+    def __init__(self, N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations, e):
+        self.N_arc = N_arc # Archive population size (A_0)
+        self.N_pop = N_pop # Usual population size (B_0)
+        self.cardinality = cardinality # Number of assets in the portfolio
+        self.num_assets = num_assets # Number of assets
+        self.returns = returns # Returns of the assets
+        self.cov_matrix = cov_matrix # Covariance matrix of the assets
+        self.mutation_rate = mutation_rate # Mutation rate
+        self.generations = generations # Number of genetations
+        self.e = e # Epsilon value
 
         populations = utils.initialize_population(self.N_pop, self.num_assets, self.cardinality)
 
@@ -24,108 +23,165 @@ class E_MOEA:
         self.population_B = populations[1]
 
 
-    def is_not_dominated(self, idx_ind_B, matrix_ret_risks_B, matrix_ret_risks_A):
+    def is_not_dominated(self, ret_risk_B, matrix_ret_risks_A):
         """
         Check if an individual is not dominated by any individual in the population.
         
         Parameters:
-        - individual: The individual to check.
-        - population: The population to check against.
+        - ret_risk_B: Returns and risk of the individual to check.
+        - matrix_ret_risks_A: A 2D array containing the returns and risks of the population A.
         
         Returns:
         - True if the individual is not dominated, False otherwise.
         """
-        ret_B, risk_B = matrix_ret_risks_B.T[idx_ind_B]
 
-        for idx_ind_A in range(len(matrix_ret_risks_A.T)):
-            ret_A, risk_A = matrix_ret_risks_A.T[idx_ind_A]
-            if self.dominates((ret_A, risk_A), (ret_B, risk_B)):
+        # If the archive population is empty, the individual is not dominated
+        if(len(matrix_ret_risks_A.T) == 0):
+            return True
+
+        ret_B, risk_B = ret_risk_B
+        for ind2 in matrix_ret_risks_A.T:
+            if self.dominates(ind2, (ret_B, risk_B)):
                 return False
         return True
 
-    def dominates_any(self, idx_ind_B, matrix_ret_risks_B, matrix_ret_risks_A):
+
+    def dominates_any(self, ret_risk_B, matrix_ret_risks_A):
         """
         Check if an individual dominates any individual in the population.
         
         Parameters:
-        - individual: The individual to check.
-        - population: The population to check against.
+        - ret_risk_B: Returns and risk of the individual to check.
+        - matrix_ret_risks_A: A 2D array containing the returns and risks of the population A.
         
         Returns:
         - True if the individual dominates any individual in the population, False otherwise.
         """
+        
+        # If the archive population is empty, the individual dominates
         if(len(matrix_ret_risks_A.T) == 0):
             return True
 
-        ret_B, risk_B = matrix_ret_risks_B.T[idx_ind_B]
+        ret_B, risk_B = ret_risk_B
         for ind2 in matrix_ret_risks_A.T:
-            ret_A, risk_A = ind2
-            
-            if self.dominates((ret_A, risk_A), (ret_B, risk_B)):
+            if self.dominates((ret_B, risk_B), ind2):
                 return True
 
         return False
+
 
     def normalize_objectives(self, matrix_ret_risks):
         """
         Normalize the objectives in the matrix.
         
         Parameters:
-        - matrix: A 2D array containing the returns and risks of the population.
+        - matrix_ret_risks: A 2D array containing the returns and risks of the population.
         
         Returns:
         - norm: A 2D array containing the normalized returns and risks.
         """
-        norm = np.zeros_like(matrix_ret_risks)
+
+        norm = np.zeros_like(matrix_ret_risks) # Normalized matrix
         for i in range(2):
-            fmin, fmax = matrix_ret_risks[i].min(), matrix_ret_risks[i].max()
-            #print("Fmin: ", fmin, "   Fmax: ", fmax)
-            norm[i] = (matrix_ret_risks[i] - fmin) / (fmax - fmin + 1e-10)
+            fmin, fmax = matrix_ret_risks[i].min(), matrix_ret_risks[i].max() # Minimum and maximum values for return and risk
+            norm[i] = (matrix_ret_risks[i] - fmin) / (fmax - fmin + 1e-10) # Normalization
         return norm
     
+
     def smallest_distance_bigger_than_e(self, ind, points):
         """
         Check if the smallest distance between an individual and any individual in the population is bigger than e.
         
         Parameters:
-        - individual: The individual to check.
-        - population: The population to check against.
+        - ind: The individual to check.
+        - points: A 2D array containing the returns and risks of the population.
         
         Returns:
         - True if the smallest distance is bigger than e, False otherwise.
         """
+        
         if len(points.T) == 0:
-            return True, np.array([])
-        ind_obj = np.array([ind])
-        points = (self.normalize_objectives(points)).T
-        #distances = cdist(ind_obj, points, 'euclidean')[0]
-        distances = np.linalg.norm(points - ind_obj, axis=1)
+            return False, np.array([])
 
-        return np.min(distances) > self.e, distances
+        # Convert the individual to a numpy array
+        ind_array = np.array(ind)
+        ind_array = ind_array[:, np.newaxis] 
+
+        # Add the individual to the points
+        points = np.concatenate((points, ind_array), axis=1)
+        # Normalize the points
+        points = (self.normalize_objectives(points)).T
+
+        # Get the last point
+        ind_obj = np.array([points[-1]])
+        # Remove the last point
+        points = points[:-1]
+
+        # Calculate the distances
+        distances = cdist(ind_obj, points, 'cityblock')
+
+        # Return if the smallest distance is bigger than e and the distances
+        return np.min(distances[0]) > self.e, distances[0]
+
 
     def improve_optimum(self, evaluated_individual, points):
+        """
+        Check if the evaluated individual improves the optimum of a single objective function.
+        
+        Parameters:
+        - evaluated_individual: The individual to check.
+        - points: A 2D array containing the returns and risks of the population.
+        
+        Returns:
+        - True if the evaluated individual improves the optimum of a single objective function, False otherwise.
+        """
+
         if(len(points) == 0):
             return False
+
+        # If the return is higher or the risk is lower
         if(evaluated_individual[0] > np.max(points[:, 0]) or evaluated_individual[1] < np.min(points[:, 1])):
             return True
         return False
 
+
     def remove_dominated_solutions(self, population, matrix_ret_risks):
-        dominance_count = np.zeros(len(population))
+        """
+        Remove dominated solutions from the population.
+        
+        Parameters:
+        - population: The population to remove dominated solutions from.
+        - matrix_ret_risks: A 2D array containing the returns and risks of the population.
+        
+        Returns:
+        - non_dominated: A list of non-dominated solutions.
+        """
+
         non_dominated = []
-        for i in range(len(population)):
-            for j in range(len(population)):
-                if utils.dominates(matrix_ret_risks, j, i):
-                    dominance_count[i] += 1
-            if dominance_count[i] == 0:
+        for i in range(len(matrix_ret_risks.T)):
+            # If the individual is not dominated
+            if self.is_not_dominated(matrix_ret_risks.T[i], matrix_ret_risks):
                 non_dominated.append(population[i])
         return np.array(non_dominated)
 
+
     def dominates(self, ret_risk1, ret_risk2):
+        """
+        Check if an individual dominates another individual.
+        
+        Parameters:
+        - ret_risk1: Returns and risk of the first individual.
+        - ret_risk2: Returns and risk of the second individual.
+        
+        Returns:
+        - True if the first individual dominates the second, False otherwise.
+        """
+
         ret1, risk1 = ret_risk1
         ret2, risk2 = ret_risk2
         return (ret1 >= ret2 and risk1 <= risk2) and (ret1 > ret2 or risk1 < risk2)
     
+
     def vary(self, population):
         """
         Apply genetic operations (crossover and mutation) to the population.
@@ -140,8 +196,10 @@ class E_MOEA:
         new_population = []
         fitness = utils.calculate_total_fitness(population, self.returns, self.cov_matrix)
         for _ in range(self.N_pop):
+            # Select two parents
             parent1 = utils.binary_tournament(population, fitness)
             parent2 = utils.binary_tournament(population, fitness)
+            # If the parents are the same, select another parent
             while utils.evaluate(parent1, self.returns, self.cov_matrix) == utils.evaluate(parent2, self.returns, self.cov_matrix):
                 parent2 = utils.binary_tournament(population, fitness)
             child = utils.crossover(parent1, parent2, self.num_assets, self.cardinality)
@@ -150,42 +208,77 @@ class E_MOEA:
         return np.array(new_population)
 
 
+    
     def update(self, population_A, population_B):
-        matrix_ret_risks_B = utils.precompute_objectives(population_B, self.returns, self.cov_matrix)
+        """
+        Update the archive population with the current population.
+        
+        Parameters:
+        - population_A: The archive population.
+        - population_B: The current population.
+        
+        Returns:
+        - population_A: The updated archive population.
+        """
+        
 
-        for idx_ind_B in range(len(population_B)):
+        # Precompute the objectives for the archive population
+        matrix_ret_risks_A_new = utils.precompute_objectives(population_A, self.returns, self.cov_matrix)
+        
+        # Copy the objectives for the old archive population
+        matrix_ret_risks_A_old = np.copy(matrix_ret_risks_A_new)
+
+        # For each individual in the current population
+        for ind_b in population_B:
             added = False
-            matrix_ret_risks_A = utils.precompute_objectives(population_A, self.returns, self.cov_matrix)
-            condition2, distances = self.smallest_distance_bigger_than_e(matrix_ret_risks_B.T[idx_ind_B], matrix_ret_risks_A)
+            removed = False
+            
+            # Evaluate the individual
+            evaluate_b = utils.evaluate(ind_b, self.returns, self.cov_matrix)
+            
+            # Check if the smallest distance between the individual and any individual in the new archive population is bigger than e
+            # And get the distances
+            condition2, distances = self.smallest_distance_bigger_than_e(evaluate_b, matrix_ret_risks_A_new)
 
-            if self.dominates_any(idx_ind_B, matrix_ret_risks_B, matrix_ret_risks_A):
-                population_A = np.vstack((population_A, population_B[idx_ind_B]))
+            # If the individual dominates any individual in the old archive population
+            if self.dominates_any(evaluate_b, matrix_ret_risks_A_old):
+                population_A = np.vstack((population_A, ind_b))
                 added = True
-            elif self.is_not_dominated(idx_ind_B, matrix_ret_risks_B, matrix_ret_risks_A):
+
+            # If the individual is not dominated by any individual in the old archive population
+            elif self.is_not_dominated(evaluate_b, matrix_ret_risks_A_old):
                 if condition2:
-                    population_A = np.vstack((population_A, population_B[idx_ind_B]))
+                    population_A = np.vstack((population_A, ind_b))
                     added = True
             
-            if self.improve_optimum(matrix_ret_risks_B.T[idx_ind_B], matrix_ret_risks_A.T):
+            # If the individual improves the optimum of a single objective function on the old archive population
+            if self.improve_optimum(evaluate_b, matrix_ret_risks_A_old.T):
                 if not added:
-                    population_A = np.vstack((population_A, population_B[idx_ind_B]))
+                    population_A = np.vstack((population_A, ind_b))
+                    added = True
+
+                # Remove the individuals whose distance to the newly added individual is less than e
                 idxs_to_remove = []
                 for idx, dist in enumerate(distances):
                     if dist < self.e:
                         idxs_to_remove.append(idx)
-                population_A = np.delete(population_A, idxs_to_remove, axis=0)
-                    
-        print("Population A size: ", len(population_A))
-        matrix_ret_risks_A = utils.precompute_objectives(population_A, self.returns, self.cov_matrix)
-        population_A = self.remove_dominated_solutions(population_A, matrix_ret_risks_A)
-        print("Population A size after removing dominated: ", len(population_A))
-    
+                if len(idxs_to_remove) > 0:
+                    population_A = np.delete(population_A, idxs_to_remove, axis=0)
+                    removed = True
+
+            # If an individual is added or removed, update the matrix of the new archive population
+            if added or removed:
+                matrix_ret_risks_A_new = utils.precompute_objectives(population_A, self.returns, self.cov_matrix)
+
+        # Remove dominated solutions
+        population_A = self.remove_dominated_solutions(population_A, matrix_ret_risks_A_new)
+
         return population_A
 
 
     def evolve(self):
         """
-        Evolve the population over a number of generations using PESA.
+        Evolve the population over a number of generations using e-MOEA.
 
         Returns:
         - population_A: The final population after evolution.
@@ -199,22 +292,37 @@ class E_MOEA:
             self.population_B = self.vary(self.population_A)
             i += 1
 
-        end_time = time.time()
-        elapsed_time = end_time - started_time
-        print(f"Execution time: {elapsed_time:.2f} seconds")
         self.population_A = self.update(self.population_A, self.population_A)
+        elapsed_time = time.time() - started_time
+        print(f"Execution time: {elapsed_time:.3f} seconds")
 
         return self.population_A
 
 
     def plot_pareto_front(self):
-        pareto_points = utils.precompute_objectives(self.population_A, self.returns, self.cov_matrix)
+        """
+        Plot the Pareto front of the population.
+        """
         
+        pareto_points = utils.precompute_objectives(self.population_A, self.returns, self.cov_matrix)
+
+        lista = np.zeros(self.cardinality + 1)
+
+        for ind in self.population_A:
+            indices = len(np.where(ind > 0)[0])
+            if(indices > self.cardinality):
+                print(" ***** IND MALO *******")
+                print(ind)
+            lista[indices] += 1
+
+        for idx, numero in enumerate(lista):
+            print("Con ", idx, " activos hay ", int(numero), " soluciones") 
+
         plt.figure(figsize=(8, 6))
-        plt.scatter(pareto_points[1, :], pareto_points[0, :], color='red', label='Pareto Front')
-        plt.xlabel('Variance')
-        plt.ylabel('Mean')
-        plt.title('Pareto front - Portfolio Optimization')
-        plt.legend()
+        plt.scatter(pareto_points[1, :], pareto_points[0, :], color='red', label='e-MOEA')
+        plt.xlabel('Variance', fontweight='bold')
+        plt.ylabel('Mean', fontweight='bold')
+        plt.title('Portfolio Optimization', fontweight='bold')
+        plt.legend(loc='lower right')
         plt.grid()
         plt.show()

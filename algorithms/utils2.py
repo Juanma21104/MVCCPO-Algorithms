@@ -17,14 +17,14 @@ def initialize_population(N_pop, num_assets, cardinality):
     population_B = []
     for _ in range(N_pop):
         individual = np.zeros(num_assets)
-        selected_assets = random.sample(range(num_assets), random.randint(1, cardinality)) # Select random assets to include in the portfolio
+        selected_assets = random.sample(range(num_assets), cardinality) # Select random assets to include in the portfolio
         for asset in selected_assets:
             value = random .uniform(0, 1)
             while value == 0:
                 value = random.uniform(0, 1)
             individual[asset] = value
-        #individual /= individual.sum()
-        individual = projection_simplex(individual)
+        individual /= individual.sum()
+        #individual = projection_probability_simplex(individual)
         population_B.append(individual)
         
     return population_A, np.array(population_B)
@@ -102,48 +102,23 @@ def crossover(parent1, parent2, num_assets, cardinality):
 
     equal_indexes = np.intersect1d(parent1_indexes, parent2_indexes)
 
-    max_cardinality = len(parent1_indexes) + len(parent2_indexes) - len(equal_indexes)
-    if(max_cardinality > cardinality):
-        max_cardinality = cardinality
-    asset_count = 0
-
     for index in equal_indexes:
-        if asset_count >= max_cardinality:
-            break
         if random.random() > 0.5:
             child[index] = parent1[index]
         else:
             child[index] = parent2[index]
-        asset_count += 1
     
     parent1_indexes = np.setdiff1d(parent1_indexes, equal_indexes)
     parent2_indexes = np.setdiff1d(parent2_indexes, equal_indexes)
 
-    parent1_index_left = list(range(len(parent1_indexes)))
-    parent2_index_left = list(range(len(parent2_indexes)))
-
-    
-    for _ in range(max_cardinality - len(equal_indexes)):
-        if asset_count >= max_cardinality:
-            break
-
-        if len(parent1_index_left) > 0 and len(parent2_index_left) > 0:
-            if random.random() > 0.5:
-                child[parent1_indexes[parent1_index_left[0]]] = parent1[parent1_indexes[parent1_index_left[0]]]
-                parent1_index_left.pop(0)
-            else:
-                child[parent2_indexes[parent2_index_left[0]]] = parent2[parent2_indexes[parent2_index_left[0]]]
-                parent2_index_left.pop(0)
-        elif len(parent1_index_left) > 0:
-            child[parent1_indexes[parent1_index_left[0]]] = parent1[parent1_indexes[parent1_index_left[0]]]
-            parent1_index_left.pop(0)
+    for i in range(cardinality - len(equal_indexes)):
+        if random.random() > 0.5:
+            child[parent1_indexes[i]] = parent1[parent1_indexes[i]]
         else:
-            child[parent2_indexes[parent2_index_left[0]]] = parent2[parent2_indexes[parent2_index_left[0]]]
-            parent2_index_left.pop(0)
-        asset_count += 1
+            child[parent2_indexes[i]] = parent2[parent2_indexes[i]]
 
-    #child = child / child.sum()
-    child = projection_simplex(child)
+    child = child / child.sum()
+    #child = projection_probability_simplex(child)
     return child
     
 def mutation(individual, mutation_rate):
@@ -160,8 +135,8 @@ def mutation(individual, mutation_rate):
     for i in range(len(individual)):
         if random.random() < mutation_rate:
             individual[i] *= random.uniform(0.75, 1.25) # Mutation 25%
-    #individual = individual / individual.sum()
-    individual = projection_simplex(individual)
+    individual = individual / individual.sum()
+    #individual = projection_probability_simplex(individual)
     return individual
 
 
@@ -254,8 +229,14 @@ def projection(y):
     ones = np.ones(S)
     z = y2 - ((ones.T @ y2 - 1) / S) * ones
 
+    print(len(np.where(z > 0)[0]))
+
+    print(z)
+    print(y_indexes)
     z2 = np.zeros(len(y))
     z2[y_indexes] = z
+
+    print(len(np.where(z2 > 0)[0]))
 
     return z2
     
@@ -271,7 +252,9 @@ def projection_simplex(y):
     S = len(y2)
     y2 = np.asarray(y2)
     u = np.sort(y2)[::-1]
+    print(u)
     cssv = np.cumsum(u)
+    print(cssv)
     rho = np.max(np.nonzero(u + (1 - cssv) / (np.arange(1, S + 1)) > 0)[0])
     lambdaa = (1 - cssv[rho]) / (rho + 1)
     z = np.maximum(y2 + lambdaa, 0)

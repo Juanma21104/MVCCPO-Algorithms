@@ -7,19 +7,21 @@ from matplotlib import pyplot as plt
 
 class NPGA2:
     def __init__(self, N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations, tdom, rsh):
-        self.N_arc = N_arc
-        self.N_pop = N_pop
-        self.cardinality = cardinality
-        self.num_assets = num_assets
-        self.returns = returns
-        self.cov_matrix = cov_matrix
-        self.mutation_rate = mutation_rate
-        self.generations = generations
+        self.N_arc = N_arc # Archive population size (A_0)
+        self.N_pop = N_pop # Usual population size (B_0)
+        self.cardinality = cardinality # Number of assets in the portfolio
+        self.num_assets = num_assets # Number of assets
+        self.returns = returns # Returns of the assets
+        self.cov_matrix = cov_matrix # Covariance matrix of the assets
+        self.mutation_rate = mutation_rate # Mutation rate
+        self.generations = generations # Number of genetations
         self.tdom = tdom  # Tournament size
         self.rsh = rsh    # Niche radius
 
-        self.population_A = utils.initialize_population(self.N_arc, self.num_assets, self.cardinality)[0]
-        self.population_B = utils.initialize_population(self.N_pop, self.num_assets, self.cardinality)[1]
+        populations = utils.initialize_population(self.N_pop, self.num_assets, self.cardinality)
+        self.population_A = populations[0] # Archive population (A_0)
+        self.population_B = populations[1] # Usual population (B_0)
+
 
     def dominance_rank(self, matrix_ret_risks):
         """
@@ -31,14 +33,16 @@ class NPGA2:
         Returns:
         - rank: A 1D array containing the dominance rank of each individual.
         """
-        N = matrix_ret_risks.shape[1]
-        rank = np.zeros(N)
+
+        N = matrix_ret_risks.shape[1] # Number of individuals
+        rank = np.zeros(N) # Dominance rank of each individual
         for i in range(N):
             for j in range(N):
                 if i != j:
                     if utils.dominates(matrix_ret_risks, j, i):
                         rank[i] += 1
         return rank
+
 
     def normalize_objectives(self, matrix_ret_risks):
         """
@@ -50,65 +54,86 @@ class NPGA2:
         Returns:
         - norm: A 2D array containing the normalized returns and risks.
         """
-        norm = np.zeros_like(matrix_ret_risks)
+
+        norm = np.zeros_like(matrix_ret_risks) # Normalized matrix
         for i in range(2):
-            fmin, fmax = matrix_ret_risks[i].min(), matrix_ret_risks[i].max()
-            #print("Fmin: ", fmin, "   Fmax: ", fmax)
-            norm[i] = (matrix_ret_risks[i] - fmin) / (fmax - fmin + 1e-10)
+            fmin, fmax = matrix_ret_risks[i].min(), matrix_ret_risks[i].max() # Minimum and maximum values for return and risk
+            norm[i] = (matrix_ret_risks[i] - fmin) / (fmax - fmin + 1e-10) # Normalization
         return norm
 
-    def metropolitan_distance(self, matrix_ret_risks):
+
+    def manhattan_distance(self, matrix_ret_risks):
+        """
+        Calculate the Manhattan distance between individuals.
+        
+        Parameters:
+        - matrix_ret_risks: A 2D array containing the returns and risks of the population.
+        
+        Returns:
+        - distances: A 2D array containing the Manhattan distances between individuals.
+        """
+
         norm_matrix = self.normalize_objectives(matrix_ret_risks).T
-        """N = norm_matrix.shape[0]
-        distances = np.zeros((N, N))
-        for i in range(N):
-            for j in range(N):
-                distances[i, j] = np.sum(np.abs(norm_matrix[i] - norm_matrix[j]))"""
         distances = cdist(norm_matrix, norm_matrix, metric='cityblock')
         return distances
+
 
     def niche_count(self, distances, next_gen, i):
         """
         Calculate the niche count of an individual.
         
         Parameters:
-        - distances: A 2D array containing the metropolitan distances between individuals.
+        - distances: A 2D array containing the Manhattan distances between individuals.
         - next_gen: The next generation of individuals.
         - i: Index of the individual.
         
         Returns:
         - count: The niche count of the individual.
         """
+
         count = 0
         for j in range(len(next_gen)):
-            if distances[i, j] < self.rsh:
-                count += 1 - distances[i, j] / self.rsh
+            if distances[i, j] < self.rsh: # If the distance is less than the niche radius
+                count += 1 - distances[i, j] / self.rsh # Add the niche count
         return count
 
+
     def update(self, population_A, population_B):
+        """
+        Update the archive population.
+        
+        Parameters:
+        - population_A: The archive population.
+        - population_B: The current population.
+        
+        Returns:
+        - archive: The updated archive population.
+        """
+
         combined = np.vstack((population_A, population_B))
         matrix_ret_risks = utils.precompute_objectives(combined, self.returns, self.cov_matrix)
         rank = self.dominance_rank(matrix_ret_risks)
-        distances = self.metropolitan_distance(matrix_ret_risks)
+        distances = self.manhattan_distance(matrix_ret_risks)
 
         archive = []
-        available = set(range(len(combined)))
+        available = set(range(len(combined))) # Set of available individuals
         while len(archive) < self.N_arc:
-            candidates = random.sample(list(available), self.tdom)
-            #candidates = random.sample(range(len(combined)), self.tdom)
-            best_rank = min(rank[i] for i in candidates)
-            best = [i for i in candidates if rank[i] == best_rank]
-            if len(best) > 1:
-                niche_counts = [self.niche_count(distances, archive, i) for i in best]
-                best_idx = best[np.argmin(niche_counts)]
+            if (len(available) < self.tdom): # If there are less available individuals than the tournament size
+                candidates = random.sample(list(available), len(available))
             else:
-                best_idx = best[0]
+                candidates = random.sample(list(available), self.tdom) # Sample a random subset of the available individuals
+            best_rank = min(rank[i] for i in candidates) # Best rank
+            best = [i for i in candidates if rank[i] == best_rank] # Best individuals
+            if len(best) > 1: # If there are multiple best individuals
+                niche_counts = [self.niche_count(distances, archive, i) for i in best] # Niche counts
+                best_idx = best[np.argmin(niche_counts)] # Best individual, the one with the lowest niche count
+            else:
+                best_idx = best[0] # Only one individual
 
-            #if not any(np.array_equal(combined[best_idx], a) for a in archive):
-            #    archive.append(combined[best_idx])
-            archive.append(combined[best_idx])
-            available.remove(best_idx)
+            archive.append(combined[best_idx]) # Add the best individual to the archive
+            available.remove(best_idx) # Remove the best individual from the available set
         return archive
+
 
     def vary(self, population):
         """
@@ -120,42 +145,54 @@ class NPGA2:
         Returns:
         - new_population: The new population after genetic operations.
         """
+
         new_population = []
         ranks = self.dominance_rank(utils.precompute_objectives(population, self.returns, self.cov_matrix))
         for _ in range(self.N_pop):
-            p1 = utils.binary_tournament(population, ranks)
-            p2 = utils.binary_tournament(population, ranks)
-            while utils.evaluate(p1, self.returns, self.cov_matrix) == utils.evaluate(p2, self.returns, self.cov_matrix):
-                p2 = utils.binary_tournament(population, ranks)
-            child = utils.crossover(p1, p2, self.num_assets, self.cardinality)
+            parent1 = utils.binary_tournament(population, ranks)
+            parent2 = utils.binary_tournament(population, ranks)
+            # If the parents are the same, select another parent
+            while utils.evaluate(parent1, self.returns, self.cov_matrix) == utils.evaluate(parent2, self.returns, self.cov_matrix):
+                parent2 = utils.binary_tournament(population, ranks)
+            child = utils.crossover(parent1, parent2, self.num_assets, self.cardinality)
             child = utils.mutation(child, self.mutation_rate)
             new_population.append(child)
         return new_population
 
+
     def evolve(self):
+        """
+        Evolve the population over a number of generations using NPGA2.
+
+        Returns:
+        - population: The final population after evolution.
+        """
+
         t = 0
-        start = time.time()
+        started_time = time.time()
         while t < self.generations:
             print(f"Generation: {t}")
-            if t != 0:
-                self.population_A = self.update(self.population_A, self.population_B)
-            else:
-                self.population_A = self.population_B
-            
+            self.population_A = self.update(self.population_A, self.population_B)
             self.population_B = self.vary(self.population_A)
             t += 1
         self.population_A = self.update(self.population_A, self.population_B)
-        print(f"Execution time: {time.time() - start:.2f}s")
+        elapsed_time = time.time() - started_time
+        print(f"Execution time: {elapsed_time:.3f} seconds")
         return self.population_A
 
+
     def plot_pareto_front(self):
+        """
+        Plot the Pareto front of the population.
+        """
+        
         pareto_points = utils.precompute_objectives(self.population_A, self.returns, self.cov_matrix)
 
         plt.figure(figsize=(8, 6))
-        plt.scatter(pareto_points[1, :], pareto_points[0, :], color='red', label='Pareto Front')
-        plt.xlabel('Variance')
-        plt.ylabel('Mean')
-        plt.title('Pareto front - Portfolio Optimization')
-        plt.legend()
+        plt.scatter(pareto_points[1, :], pareto_points[0, :], color='red', label='NPGA2')
+        plt.xlabel('Variance', fontweight='bold')
+        plt.ylabel('Mean', fontweight='bold')
+        plt.title('Portfolio Optimization', fontweight='bold')
+        plt.legend(loc='lower right')
         plt.grid()
         plt.show()
