@@ -1,8 +1,10 @@
-import algorithms.utils as utils
 import time
-from matplotlib import pyplot as plt
 import numpy as np
 from scipy.spatial.distance import cdist
+from algorithms.utils.initialization import initialize_population
+from algorithms.utils.operators import binary_tournament, crossover, mutation
+from algorithms.utils.evaluation import precompute_objectives, evaluate
+from algorithms.utils.fitness import dominates, calculate_total_fitness
 
 class SPEA2:
     def __init__(self, N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations):
@@ -15,7 +17,7 @@ class SPEA2:
         self.mutation_rate = mutation_rate # Mutation rate
         self.generations = generations # Number of genetations
         
-        populations = utils.initialize_population(self.N_pop, self.num_assets, self.cardinality)
+        populations = initialize_population(self.N_pop, self.num_assets, self.cardinality)
         self.population_A = populations[0] # Archive population (A_0)
         self.population_B = populations[1] # Usual population (B_0)
 
@@ -35,9 +37,9 @@ class SPEA2:
         domination_matrix = np.zeros((N, N), dtype=bool) # Boolean dominance matrix
         for i in range(N): # Index of the first individual
             for j in range(i + 1, N): # Index of the second individual
-                if utils.dominates(matrix_ret_risks, i, j): # If i dominates j
+                if dominates(matrix_ret_risks, i, j): # If i dominates j
                     domination_matrix[i, j] = True
-                elif utils.dominates(matrix_ret_risks, j, i): # If j dominates i
+                elif dominates(matrix_ret_risks, j, i): # If j dominates i
                     domination_matrix[j, i] = True
         return domination_matrix
 
@@ -56,7 +58,7 @@ class SPEA2:
         """
 
         combined = np.vstack((population_A, population_B)) # Combined population
-        fitness, matrix_ret_risks = utils.calculate_total_fitness(combined, self.returns, self.cov_matrix, return_matrix=True) # Fitness values
+        fitness, matrix_ret_risks = calculate_total_fitness(combined, self.returns, self.cov_matrix, return_matrix=True) # Fitness values
 
 
         dom_matrix = self.compute_dominance_matrix(matrix_ret_risks) # Dominance matrix
@@ -94,7 +96,7 @@ class SPEA2:
         """
 
         N = len(population)
-        matrix_ret_risks = utils.precompute_objectives(population, self.returns, self.cov_matrix)
+        matrix_ret_risks = precompute_objectives(population, self.returns, self.cov_matrix)
         points = matrix_ret_risks.T  # shape (N, 2)
 
         # Compute pairwise distances
@@ -150,15 +152,15 @@ class SPEA2:
         """
 
         new_population = []
-        fitness = utils.calculate_total_fitness(population, self.returns, self.cov_matrix)
+        fitness = calculate_total_fitness(population, self.returns, self.cov_matrix)
         for _ in range(self.N_pop):
-            parent1 = utils.binary_tournament(population, fitness)
-            parent2 = utils.binary_tournament(population, fitness)
+            parent1 = binary_tournament(population, fitness)
+            parent2 = binary_tournament(population, fitness)
             # If the parents are the same, select another parent
-            while utils.evaluate(parent1, self.returns, self.cov_matrix) == utils.evaluate(parent2, self.returns, self.cov_matrix):
-                parent2 = utils.binary_tournament(population, fitness)
-            child = utils.crossover(parent1, parent2, self.num_assets, self.cardinality)
-            child = utils.mutation(child, self.mutation_rate)
+            while evaluate(parent1, self.returns, self.cov_matrix) == evaluate(parent2, self.returns, self.cov_matrix):
+                parent2 = binary_tournament(population, fitness)
+            child = crossover(parent1, parent2, self.num_assets, self.cardinality)
+            child = mutation(child, self.mutation_rate)
             new_population.append(child)
         return np.array(new_population)
 
@@ -184,20 +186,3 @@ class SPEA2:
         print(f"Execution time: {elapsed_time:.3f} seconds")
 
         return self.population_A
-
-    
-    def plot_pareto_front(self):
-        """
-        Plot the Pareto front of the population.
-        """
-
-        pareto_points = utils.precompute_objectives(self.population_A, self.returns, self.cov_matrix)
-
-        plt.figure(figsize=(8, 6))
-        plt.scatter(pareto_points[1, :], pareto_points[0, :], color='red', label='SPEA2')
-        plt.xlabel('Variance', fontweight='bold')
-        plt.ylabel('Mean', fontweight='bold')
-        plt.title('Portfolio Optimization', fontweight='bold')
-        plt.legend(loc='lower right')
-        plt.grid()
-        plt.show()

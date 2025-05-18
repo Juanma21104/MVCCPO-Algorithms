@@ -1,8 +1,10 @@
 import random
 import time
 import numpy as np
-from matplotlib import pyplot as plt
-import algorithms.utils as utils
+from algorithms.utils.initialization import initialize_population
+from algorithms.utils.evaluation import precompute_objectives, evaluate
+from algorithms.utils.operators import crossover, mutation
+from algorithms.utils.fitness import dominates
 
 class NSGA2:
     def __init__(self, N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations):
@@ -15,7 +17,7 @@ class NSGA2:
         self.mutation_rate = mutation_rate # Mutation rate
         self.generations = generations # Number of genetations
 
-        populations = utils.initialize_population(self.N_pop, self.num_assets, self.cardinality)
+        populations = initialize_population(self.N_pop, self.num_assets, self.cardinality)
         self.population_A = populations[0] # Archive population (A_0)
         self.population_B = populations[1] # Usual population (B_0)
 
@@ -37,13 +39,13 @@ class NSGA2:
         dominated_sets = [[] for _ in range(population_size)] # List of dominated sets for each individual
 
         # Returns a matrix with the returns and risks of each individual
-        matrix_ret_risks = utils.precompute_objectives(population, self.returns, self.cov_matrix) 
+        matrix_ret_risks = precompute_objectives(population, self.returns, self.cov_matrix) 
         
         for i in range(population_size):
             for j in range(population_size):
-                if utils.dominates(matrix_ret_risks, i, j): # If i dominates j
+                if dominates(matrix_ret_risks, i, j): # If i dominates j
                     dominated_sets[i].append(j)
-                elif utils.dominates(matrix_ret_risks, j, i): # If j dominates i
+                elif dominates(matrix_ret_risks, j, i): # If j dominates i
                     dominance_count[i] += 1
             if dominance_count[i] == 0: # If no one dominates this individual, it belongs to the first front
                 fronts[0].append(i)
@@ -76,17 +78,17 @@ class NSGA2:
 
         distances = np.zeros(len(front)) # Initialize distances to zero
         for m in range(2): # For each objective (expected return and risk)
-            front.sort(key=lambda x: utils.evaluate(population[x], self.returns, self.cov_matrix)[m]) # Sort the front by the m-th objective
+            front.sort(key=lambda x: evaluate(population[x], self.returns, self.cov_matrix)[m]) # Sort the front by the m-th objective
             distances[0] = distances[-1] = np.inf # Assign infinite distance to the limits
-            min_val = utils.evaluate(population[front[0]], self.returns, self.cov_matrix)[m]
-            max_val = utils.evaluate(population[front[-1]], self.returns, self.cov_matrix)[m]
+            min_val = evaluate(population[front[0]], self.returns, self.cov_matrix)[m]
+            max_val = evaluate(population[front[-1]], self.returns, self.cov_matrix)[m]
             for i in range(1, len(front) - 1): # For each individual in the front (except the limits)
                 if max_val - min_val == 0: # Avoid division by zero
                     distances[i] = 0
                 else:
                     # Calculate the crowding distance, which is the normalized distance between the two neighbors
-                    distances[i] += (utils.evaluate(population[front[i + 1]], self.returns, self.cov_matrix)[m] -
-                                 utils.evaluate(population[front[i - 1]], self.returns, self.cov_matrix)[m]) / (max_val - min_val)
+                    distances[i] += (evaluate(population[front[i + 1]], self.returns, self.cov_matrix)[m] -
+                                 evaluate(population[front[i - 1]], self.returns, self.cov_matrix)[m]) / (max_val - min_val)
                  
         return distances
 
@@ -136,8 +138,8 @@ class NSGA2:
         
         for _ in range(self.N_pop): # Create a new population
             parents = self.binary_tournament(population, fronts, distances) # Select two parents
-            child = utils.crossover(population[parents[0]], population[parents[1]], self.num_assets, self.cardinality) # Crossover
-            child = utils.mutation(child, self.mutation_rate) # Mutation
+            child = crossover(population[parents[0]], population[parents[1]], self.num_assets, self.cardinality) # Crossover
+            child = mutation(child, self.mutation_rate) # Mutation
             new_population.append(child)
         return np.array(new_population)
     
@@ -236,32 +238,3 @@ class NSGA2:
         print(f"Execution time: {elapsed_time:.3f} seconds")
 
         return self.population_A
-    
-
-    def plot_pareto_front(self):
-        """
-        Plot the Pareto front of the population.
-        """
-        
-        pareto_points = utils.precompute_objectives(self.population_A, self.returns, self.cov_matrix)
-
-        lista = np.zeros(self.cardinality + 1)
-
-        for ind in self.population_A:
-            indices = len(np.where(ind > 0)[0])
-            if(indices > self.cardinality):
-                print(" ***** IND MALO *******")
-                print(ind)
-            lista[indices] += 1
-
-        for idx, numero in enumerate(lista):
-            print("Con ", idx, " activos hay ", int(numero), " soluciones")
-
-        plt.figure(figsize=(8, 6))
-        plt.scatter(pareto_points[1, :], pareto_points[0, :], color='red', label='NSGA-II')
-        plt.xlabel('Variance', fontweight='bold')
-        plt.ylabel('Mean', fontweight='bold')
-        plt.title('Portfolio Optimization', fontweight='bold')
-        plt.legend(loc='lower right')
-        plt.grid()
-        plt.show()

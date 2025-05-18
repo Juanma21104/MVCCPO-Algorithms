@@ -1,8 +1,10 @@
-import algorithms.utils as utils
 import time
-from matplotlib import pyplot as plt
 import numpy as np
 from scipy.spatial.distance import cdist
+from algorithms.utils.initialization import initialize_population
+from algorithms.utils.fitness import calculate_total_fitness
+from algorithms.utils.operators import binary_tournament, crossover, mutation
+from algorithms.utils.evaluation import precompute_objectives, evaluate
 
 
 class E_MOEA:
@@ -17,7 +19,7 @@ class E_MOEA:
         self.generations = generations # Number of genetations
         self.e = e # Epsilon value
 
-        populations = utils.initialize_population(self.N_pop, self.num_assets, self.cardinality)
+        populations = initialize_population(self.N_pop, self.num_assets, self.cardinality)
 
         self.population_A = populations[0]
         self.population_B = populations[1]
@@ -194,16 +196,16 @@ class E_MOEA:
         """
 
         new_population = []
-        fitness = utils.calculate_total_fitness(population, self.returns, self.cov_matrix)
+        fitness = calculate_total_fitness(population, self.returns, self.cov_matrix)
         for _ in range(self.N_pop):
             # Select two parents
-            parent1 = utils.binary_tournament(population, fitness)
-            parent2 = utils.binary_tournament(population, fitness)
+            parent1 = binary_tournament(population, fitness)
+            parent2 = binary_tournament(population, fitness)
             # If the parents are the same, select another parent
-            while utils.evaluate(parent1, self.returns, self.cov_matrix) == utils.evaluate(parent2, self.returns, self.cov_matrix):
-                parent2 = utils.binary_tournament(population, fitness)
-            child = utils.crossover(parent1, parent2, self.num_assets, self.cardinality)
-            child = utils.mutation(child, self.mutation_rate)
+            while evaluate(parent1, self.returns, self.cov_matrix) == evaluate(parent2, self.returns, self.cov_matrix):
+                parent2 = binary_tournament(population, fitness)
+            child = crossover(parent1, parent2, self.num_assets, self.cardinality)
+            child = mutation(child, self.mutation_rate)
             new_population.append(child)
         return np.array(new_population)
 
@@ -223,7 +225,7 @@ class E_MOEA:
         
 
         # Precompute the objectives for the archive population
-        matrix_ret_risks_A_new = utils.precompute_objectives(population_A, self.returns, self.cov_matrix)
+        matrix_ret_risks_A_new = precompute_objectives(population_A, self.returns, self.cov_matrix)
         
         # Copy the objectives for the old archive population
         matrix_ret_risks_A_old = np.copy(matrix_ret_risks_A_new)
@@ -234,7 +236,7 @@ class E_MOEA:
             removed = False
             
             # Evaluate the individual
-            evaluate_b = utils.evaluate(ind_b, self.returns, self.cov_matrix)
+            evaluate_b = evaluate(ind_b, self.returns, self.cov_matrix)
             
             # Check if the smallest distance between the individual and any individual in the new archive population is bigger than e
             # And get the distances
@@ -268,7 +270,7 @@ class E_MOEA:
 
             # If an individual is added or removed, update the matrix of the new archive population
             if added or removed:
-                matrix_ret_risks_A_new = utils.precompute_objectives(population_A, self.returns, self.cov_matrix)
+                matrix_ret_risks_A_new = precompute_objectives(population_A, self.returns, self.cov_matrix)
 
         # Remove dominated solutions
         population_A = self.remove_dominated_solutions(population_A, matrix_ret_risks_A_new)
@@ -297,32 +299,3 @@ class E_MOEA:
         print(f"Execution time: {elapsed_time:.3f} seconds")
 
         return self.population_A
-
-
-    def plot_pareto_front(self):
-        """
-        Plot the Pareto front of the population.
-        """
-        
-        pareto_points = utils.precompute_objectives(self.population_A, self.returns, self.cov_matrix)
-
-        lista = np.zeros(self.cardinality + 1)
-
-        for ind in self.population_A:
-            indices = len(np.where(ind > 0)[0])
-            if(indices > self.cardinality):
-                print(" ***** IND MALO *******")
-                print(ind)
-            lista[indices] += 1
-
-        for idx, numero in enumerate(lista):
-            print("Con ", idx, " activos hay ", int(numero), " soluciones") 
-
-        plt.figure(figsize=(8, 6))
-        plt.scatter(pareto_points[1, :], pareto_points[0, :], color='red', label='e-MOEA')
-        plt.xlabel('Variance', fontweight='bold')
-        plt.ylabel('Mean', fontweight='bold')
-        plt.title('Portfolio Optimization', fontweight='bold')
-        plt.legend(loc='lower right')
-        plt.grid()
-        plt.show()

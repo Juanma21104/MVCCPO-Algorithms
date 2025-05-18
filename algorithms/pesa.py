@@ -1,7 +1,9 @@
 import time
 import numpy as np
-import algorithms.utils as utils
-import matplotlib.pyplot as plt
+from algorithms.utils.initialization import initialize_population
+from algorithms.utils.evaluation import precompute_objectives, evaluate
+from algorithms.utils.operators import crossover, mutation, binary_tournament
+
 
 class PESA:
     def __init__(self, N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations, grid_divisions=10):
@@ -15,7 +17,7 @@ class PESA:
         self.generations = generations # Number of genetations
         self.grid_divisions = grid_divisions # Number of divisions in the grid
 
-        populations = utils.initialize_population(self.N_pop, self.num_assets, self.cardinality)
+        populations = initialize_population(self.N_pop, self.num_assets, self.cardinality)
         self.population_A = populations[0] # Archive population (A_0)
         self.population_B = populations[1] # Usual population (B_0)
 
@@ -71,23 +73,23 @@ class PESA:
         return length
 
 
-    def fitness(self, population):
+    def fitness(self, matrix_ret_risks):
         """
         Compute the fitness of the population, based on the number of individuals in each 
         cell of the hypergrid.
         
         Parameters:
-        - population: The population.
+        - matrix_ret_risks: The returns and risks of the population.
         
         Returns:
         - fitness: The fitness of the population.
         """
 
-        points = utils.precompute_objectives(population, self.returns, self.cov_matrix).T
+        points = matrix_ret_risks.T
         hypergrid = self.assign_hypergrid(points) # Hypergrid
-        fitness = np.zeros(len(population))
+        fitness = np.zeros(len(matrix_ret_risks.T))
 
-        for i in range(len(population)):
+        for i in range(len(matrix_ret_risks.T)):
             fitness[i] = self.get_individual_fitness(hypergrid, i) # Fitness of each individual
 
         return fitness
@@ -105,37 +107,35 @@ class PESA:
         """
 
         new_population = []
-        fitness = self.fitness(population) 
+        matrix_ret_risks = precompute_objectives(population, self.returns, self.cov_matrix)
+        fitness = self.fitness(matrix_ret_risks) 
         for _ in range(self.N_pop):
-            parent1 = utils.binary_tournament(population, fitness)
-            parent2 = utils.binary_tournament(population, fitness)
+            parent1 = binary_tournament(population, fitness)
+            parent2 = binary_tournament(population, fitness)
             # If the parents are the same, select another parent
-            while utils.evaluate(parent1, self.returns, self.cov_matrix) == utils.evaluate(parent2, self.returns, self.cov_matrix):
-                parent2 = utils.binary_tournament(population, fitness)
-            child = utils.crossover(parent1, parent2, self.num_assets, self.cardinality)
-            child = utils.mutation(child, self.mutation_rate)
+            while evaluate(parent1, self.returns, self.cov_matrix) == evaluate(parent2, self.returns, self.cov_matrix):
+                parent2 = binary_tournament(population, fitness)
+            child = crossover(parent1, parent2, self.num_assets, self.cardinality)
+            child = mutation(child, self.mutation_rate)
             new_population.append(child)
         return np.array(new_population)
 
 
-    def is_not_dominated(self, idx_ind_B, matrix_ret_risks_B, matrix_ret_risks_A):
+    def is_not_dominated(self, ret_risk_B, matrix_ret_risks_A):
         """
         Check if an individual is not dominated by any individual in the population.
         
         Parameters:
-        - idx_ind_B: The index of the individual to check.
-        - matrix_ret_risks_B: The returns and risks of the current population.
+        - ret_risk_B: The returns and risk of the individual to check.
         - matrix_ret_risks_A: The returns and risks of the archive population.
         
         Returns:
         - True if the individual is not dominated, False otherwise.
         """
 
-        ret_B, risk_B = matrix_ret_risks_B.T[idx_ind_B]
 
-        for idx_ind_A in range(len(matrix_ret_risks_A.T)):
-            ret_A, risk_A = matrix_ret_risks_A.T[idx_ind_A]
-            if self.dominates((ret_A, risk_A), (ret_B, risk_B)):
+        for ret_risk_A in matrix_ret_risks_A.T:
+            if self.dominates(ret_risk_A, ret_risk_B):
                 return False
         return True
 
@@ -152,9 +152,7 @@ class PESA:
         - True if the first individual dominates the second, False otherwise.
         """
 
-        ret1, risk1 = ret_risk1
-        ret2, risk2 = ret_risk2
-        return (ret1 >= ret2 and risk1 <= risk2) and (ret1 > ret2 or risk1 < risk2)
+        return ret_risk1[0] >= ret_risk2[0] and ret_risk1[1] <= ret_risk2[1] and (ret_risk1[0] > ret_risk2[0] or ret_risk1[1] < ret_risk2[1])
 
 
     def update(self, population_A, population_B):
@@ -169,29 +167,32 @@ class PESA:
         - population_A: The updated archive population.
         """
         
-        matrix_ret_risks_B = utils.precompute_objectives(population_B, self.returns, self.cov_matrix)
+        matrix_ret_risks_A = precompute_objectives(population_A, self.returns, self.cov_matrix)
         
-        for idx_ind_B in range(len(population_B)):
-            matrix_ret_risks_A = utils.precompute_objectives(population_A, self.returns, self.cov_matrix)
+        for ind_b in population_B:
+            ret_risk_B = evaluate(ind_b, self.returns, self.cov_matrix)
             # If the individual is not dominated by any individual in the archive population
-            if (self.is_not_dominated(idx_ind_B, matrix_ret_risks_B, matrix_ret_risks_A)):
+            if (self.is_not_dominated(ret_risk_B, matrix_ret_risks_A)):
                 # If the individual dominates any individual in the archive population, will be removed
                 idxs_to_remove = []
-                for idx_ind_A in range(len(matrix_ret_risks_A.T)):
-                    if self.dominates(matrix_ret_risks_B.T[idx_ind_B], matrix_ret_risks_A.T[idx_ind_A]):
-                        idxs_to_remove.append(idx_ind_A)
+                for idx,ret_risk_A in enumerate(matrix_ret_risks_A.T):
+                    if self.dominates(ret_risk_B, ret_risk_A):
+                        idxs_to_remove.append(idx)
 
                 population_A = np.delete(population_A, idxs_to_remove, axis=0)
+                matrix_ret_risks_A = np.delete(matrix_ret_risks_A.T, idxs_to_remove, axis=0).T
+
                 # Add the individual to the archive population
-                population_A = np.vstack((population_A, population_B[idx_ind_B]))
+                population_A = np.vstack((population_A, ind_b))
+                matrix_ret_risks_A = np.vstack((matrix_ret_risks_A.T, ret_risk_B)).T
                 if len(population_A) > self.N_arc:
                     # Remove the individual with the highest fitness, if there are multiple individuals with
                     # the same fitness, remove one at random
-                    fitness = self.fitness(population_A)
-                    max_fitness = np.max(fitness)
-                    max_indices = np.where(fitness == max_fitness)[0]
-                    random_choice = np.random.choice(max_indices)
-                    population_A = np.delete(population_A, random_choice, axis=0)
+                    fitness = self.fitness(matrix_ret_risks_A)
+                    max_indices = np.where(fitness == np.max(fitness))[0]
+                    to_remove = np.random.choice(max_indices)
+                    population_A = np.delete(population_A, to_remove, axis=0)
+                    matrix_ret_risks_A = np.delete(matrix_ret_risks_A.T, to_remove, axis=0).T
 
         return population_A
 
@@ -217,21 +218,3 @@ class PESA:
         print(f"Execution time: {elapsed_time:.3f} seconds")
 
         return self.population_A
-
-
-    def plot_pareto_front(self):
-        """
-        Plot the Pareto front of the population.
-        
-        """
-
-        pareto_points = utils.precompute_objectives(self.population_A, self.returns, self.cov_matrix)
-
-        plt.figure(figsize=(8, 6))
-        plt.scatter(pareto_points[1, :], pareto_points[0, :], color='red', label='PESA')
-        plt.xlabel('Variance', fontweight='bold')
-        plt.ylabel('Mean', fontweight='bold')
-        plt.title('Portfolio Optimization', fontweight='bold')
-        plt.legend(loc='lower right')
-        plt.grid()
-        plt.show()

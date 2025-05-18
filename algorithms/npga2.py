@@ -1,9 +1,13 @@
-import algorithms.utils as utils
 import time
 import numpy as np
 import random
 from scipy.spatial.distance import cdist
-from matplotlib import pyplot as plt
+from algorithms.utils.initialization import initialize_population
+from algorithms.utils.fitness import dominates
+from algorithms.utils.operators import binary_tournament, crossover, mutation
+from algorithms.utils.evaluation import precompute_objectives, evaluate
+from algorithms.utils.normalization import normalize_objectives
+
 
 class NPGA2:
     def __init__(self, N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations, tdom, rsh):
@@ -18,7 +22,7 @@ class NPGA2:
         self.tdom = tdom  # Tournament size
         self.rsh = rsh    # Niche radius
 
-        populations = utils.initialize_population(self.N_pop, self.num_assets, self.cardinality)
+        populations = initialize_population(self.N_pop, self.num_assets, self.cardinality)
         self.population_A = populations[0] # Archive population (A_0)
         self.population_B = populations[1] # Usual population (B_0)
 
@@ -39,27 +43,9 @@ class NPGA2:
         for i in range(N):
             for j in range(N):
                 if i != j:
-                    if utils.dominates(matrix_ret_risks, j, i):
+                    if dominates(matrix_ret_risks, j, i):
                         rank[i] += 1
         return rank
-
-
-    def normalize_objectives(self, matrix_ret_risks):
-        """
-        Normalize the objectives in the matrix.
-        
-        Parameters:
-        - matrix: A 2D array containing the returns and risks of the population.
-        
-        Returns:
-        - norm: A 2D array containing the normalized returns and risks.
-        """
-
-        norm = np.zeros_like(matrix_ret_risks) # Normalized matrix
-        for i in range(2):
-            fmin, fmax = matrix_ret_risks[i].min(), matrix_ret_risks[i].max() # Minimum and maximum values for return and risk
-            norm[i] = (matrix_ret_risks[i] - fmin) / (fmax - fmin + 1e-10) # Normalization
-        return norm
 
 
     def manhattan_distance(self, matrix_ret_risks):
@@ -73,7 +59,7 @@ class NPGA2:
         - distances: A 2D array containing the Manhattan distances between individuals.
         """
 
-        norm_matrix = self.normalize_objectives(matrix_ret_risks).T
+        norm_matrix = normalize_objectives(matrix_ret_risks).T
         distances = cdist(norm_matrix, norm_matrix, metric='cityblock')
         return distances
 
@@ -111,7 +97,7 @@ class NPGA2:
         """
 
         combined = np.vstack((population_A, population_B))
-        matrix_ret_risks = utils.precompute_objectives(combined, self.returns, self.cov_matrix)
+        matrix_ret_risks = precompute_objectives(combined, self.returns, self.cov_matrix)
         rank = self.dominance_rank(matrix_ret_risks)
         distances = self.manhattan_distance(matrix_ret_risks)
 
@@ -147,15 +133,15 @@ class NPGA2:
         """
 
         new_population = []
-        ranks = self.dominance_rank(utils.precompute_objectives(population, self.returns, self.cov_matrix))
+        ranks = self.dominance_rank(precompute_objectives(population, self.returns, self.cov_matrix))
         for _ in range(self.N_pop):
-            parent1 = utils.binary_tournament(population, ranks)
-            parent2 = utils.binary_tournament(population, ranks)
+            parent1 = binary_tournament(population, ranks)
+            parent2 = binary_tournament(population, ranks)
             # If the parents are the same, select another parent
-            while utils.evaluate(parent1, self.returns, self.cov_matrix) == utils.evaluate(parent2, self.returns, self.cov_matrix):
-                parent2 = utils.binary_tournament(population, ranks)
-            child = utils.crossover(parent1, parent2, self.num_assets, self.cardinality)
-            child = utils.mutation(child, self.mutation_rate)
+            while evaluate(parent1, self.returns, self.cov_matrix) == evaluate(parent2, self.returns, self.cov_matrix):
+                parent2 = binary_tournament(population, ranks)
+            child = crossover(parent1, parent2, self.num_assets, self.cardinality)
+            child = mutation(child, self.mutation_rate)
             new_population.append(child)
         return new_population
 
@@ -179,20 +165,3 @@ class NPGA2:
         elapsed_time = time.time() - started_time
         print(f"Execution time: {elapsed_time:.3f} seconds")
         return self.population_A
-
-
-    def plot_pareto_front(self):
-        """
-        Plot the Pareto front of the population.
-        """
-        
-        pareto_points = utils.precompute_objectives(self.population_A, self.returns, self.cov_matrix)
-
-        plt.figure(figsize=(8, 6))
-        plt.scatter(pareto_points[1, :], pareto_points[0, :], color='red', label='NPGA2')
-        plt.xlabel('Variance', fontweight='bold')
-        plt.ylabel('Mean', fontweight='bold')
-        plt.title('Portfolio Optimization', fontweight='bold')
-        plt.legend(loc='lower right')
-        plt.grid()
-        plt.show()

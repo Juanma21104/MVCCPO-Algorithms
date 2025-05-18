@@ -3,8 +3,8 @@ from algorithms.spea2 import SPEA2
 from algorithms.npga2 import NPGA2
 from algorithms.pesa import PESA
 from algorithms.e_moea import E_MOEA
-from algorithms.soea import SOEA
-from algorithms.data_loader import load_dataset
+from algorithms.utils.data_loader import load_dataset
+from algorithms.utils.visualization import plot_pareto_front as print_pareto_front
 
 if __name__ == "__main__":
 
@@ -24,46 +24,37 @@ if __name__ == "__main__":
 
     tournament_size = 10
     niche_radius = 0.7
-
-    trade_off_coeff = 0.5
  
     # Run NSGA-II 
     """nsga2 = NSGA2(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations)
-    nsga2.evolve()
-    nsga2.plot_pareto_front()"""
+    final_population = nsga2.evolve()
+    print_pareto_front(final_population, returns, cov_matrix, cardinality, "NSGA-II")"""
 
 
     # Run SPEA-II algorithm
     """spea2 = SPEA2(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations)
-    spea2.evolve()
-    spea2.plot_pareto_front()"""
+    final_population = spea2.evolve()
+    print_pareto_front(final_population, returns, cov_matrix, cardinality, "SPEA2")"""
 
 
     # Run NPGA2 algorithm    
     """npga2 = NPGA2(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations, tournament_size, niche_radius)
-    npga2.evolve()
-    npga2.plot_pareto_front()"""
+    final_population = npga2.evolve()
+    print_pareto_front(final_population, returns, cov_matrix, cardinality, "NPGA2")"""
 
 
     # Run PESA algorithm    
-    """pesa = PESA(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate - 0.1, generations)
-    pesa.evolve()
-    pesa.plot_pareto_front()"""
+    pesa = PESA(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate - 0.1, generations)
+    final_population = pesa.evolve()
+    print_pareto_front(final_population, returns, cov_matrix, cardinality, "PESA")
 
 
     # Run E-MOEA algorithm    
-    e = 0.00458 * 1.1
+    """e = 0.00458 * 1.1
     e_moea = E_MOEA(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate - 0.1, generations, e)
-    e_moea.evolve()
-    e_moea.plot_pareto_front()
+    final_population = e_moea.evolve()
+    print_pareto_front(final_population, returns, cov_matrix, cardinality, "e-MOEA")"""
     
-
-    # Run SOEA algorithm    
-    """soea = SOEA(100, 1, num_assets, returns, cov_matrix, cardinality, mutation_rate, 100000, trade_off_coeff)
-    soea.evolve()
-    print("Best individual:", soea.get_best_individual())
-    ret, risk = utils.evaluate(soea.get_best_individual(), returns, cov_matrix)
-    print("Returns and risks:", ret, risk)"""
 
 
 
