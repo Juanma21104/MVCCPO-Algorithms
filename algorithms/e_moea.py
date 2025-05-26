@@ -234,6 +234,7 @@ class E_MOEA:
         for ind_b in population_B:
             added = False
             removed = False
+            idxs_to_remove = []
             
             # Evaluate the individual
             evaluate_b = evaluate(ind_b, self.returns, self.cov_matrix)
@@ -260,7 +261,6 @@ class E_MOEA:
                     added = True
 
                 # Remove the individuals whose distance to the newly added individual is less than e
-                idxs_to_remove = []
                 for idx, dist in enumerate(distances):
                     if dist < self.e:
                         idxs_to_remove.append(idx)
@@ -269,8 +269,10 @@ class E_MOEA:
                     removed = True
 
             # If an individual is added or removed, update the matrix of the new archive population
-            if added or removed:
-                matrix_ret_risks_A_new = precompute_objectives(population_A, self.returns, self.cov_matrix)
+            if removed:
+                matrix_ret_risks_A_new = np.delete(matrix_ret_risks_A_new, idxs_to_remove, axis=1)
+            if added:
+                matrix_ret_risks_A_new = np.vstack((matrix_ret_risks_A_new.T, evaluate_b)).T
 
         # Remove dominated solutions
         population_A = self.remove_dominated_solutions(population_A, matrix_ret_risks_A_new)

@@ -24,6 +24,14 @@ def dominates(matrix_ret_risks, ind1, ind2):
 
 
 def raw_fitness(population, matrix_ret_risks):
+    """
+    Calculate the raw fitness values for each individual in the population.
+    Parameters:
+    - population: A 2D array representing the population of portfolios.
+    - matrix_ret_risks: A 2D array containing the returns and risks of the population.
+    Returns:
+    - raw_fitness_values: A 1D array representing the raw fitness values of each individual.
+    """
     N = len(population)
     dominance_count = np.zeros(N) # A 2D array that count of how many individuals dominate individual i
     dominated_sets = [[] for _ in range(N)] # List of dominated sets for each individual

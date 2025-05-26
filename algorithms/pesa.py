@@ -132,8 +132,7 @@ class PESA:
         Returns:
         - True if the individual is not dominated, False otherwise.
         """
-
-
+        
         for ret_risk_A in matrix_ret_risks_A.T:
             if self.dominates(ret_risk_A, ret_risk_B):
                 return False

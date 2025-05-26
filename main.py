@@ -44,16 +44,16 @@ if __name__ == "__main__":
 
 
     # Run PESA algorithm    
-    pesa = PESA(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate - 0.1, generations)
+    """pesa = PESA(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate - 0.1, generations)
     final_population = pesa.evolve()
-    print_pareto_front(final_population, returns, cov_matrix, cardinality, "PESA")
+    print_pareto_front(final_population, returns, cov_matrix, cardinality, "PESA")"""
 
 
     # Run E-MOEA algorithm    
-    """e = 0.00458 * 1.1
+    e = 0.00458 * 1.1
     e_moea = E_MOEA(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate - 0.1, generations, e)
     final_population = e_moea.evolve()
-    print_pareto_front(final_population, returns, cov_matrix, cardinality, "e-MOEA")"""
+    print_pareto_front(final_population, returns, cov_matrix, cardinality, "e-MOEA")
     
 
 
