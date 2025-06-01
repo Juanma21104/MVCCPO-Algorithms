@@ -10,13 +10,14 @@ from algorithms.utils.normalization import normalize_objectives
 
 
 class NPGA2:
-    def __init__(self, N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations, tdom, rsh):
+    def __init__(self, N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, crossover_rate, mutation_rate, generations, tdom, rsh):
         self.N_arc = N_arc # Archive population size (A_0)
         self.N_pop = N_pop # Usual population size (B_0)
         self.cardinality = cardinality # Number of assets in the portfolio
         self.num_assets = num_assets # Number of assets
         self.returns = returns # Returns of the assets
         self.cov_matrix = cov_matrix # Covariance matrix of the assets
+        self.crossover_rate = crossover_rate # Crossover rate
         self.mutation_rate = mutation_rate # Mutation rate
         self.generations = generations # Number of genetations
         self.tdom = tdom  # Tournament size
@@ -140,7 +141,7 @@ class NPGA2:
             # If the parents are the same, select another parent
             while evaluate(parent1, self.returns, self.cov_matrix) == evaluate(parent2, self.returns, self.cov_matrix):
                 parent2 = binary_tournament(population, ranks)
-            child = crossover(parent1, parent2, self.num_assets, self.cardinality)
+            child = crossover(parent1, parent2, self.num_assets, self.cardinality, self.crossover_rate)
             child = mutation(child, self.mutation_rate)
             new_population.append(child)
         return new_population

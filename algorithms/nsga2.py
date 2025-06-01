@@ -7,13 +7,14 @@ from algorithms.utils.operators import crossover, mutation
 from algorithms.utils.fitness import dominates
 
 class NSGA2:
-    def __init__(self, N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, mutation_rate, generations):
+    def __init__(self, N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, crossover_rate, mutation_rate, generations):
         self.N_arc = N_arc # Archive population size (A_0)
         self.N_pop = N_pop # Usual population size (B_0)
         self.cardinality = cardinality # Number of assets in the portfolio
         self.num_assets = num_assets # Number of assets
         self.returns = returns # Returns of the assets
         self.cov_matrix = cov_matrix # Covariance matrix of the assets
+        self.crossover_rate = crossover_rate # Crossover rate
         self.mutation_rate = mutation_rate # Mutation rate
         self.generations = generations # Number of genetations
 
@@ -138,7 +139,7 @@ class NSGA2:
         
         for _ in range(self.N_pop): # Create a new population
             parents = self.binary_tournament(population, fronts, distances) # Select two parents
-            child = crossover(population[parents[0]], population[parents[1]], self.num_assets, self.cardinality) # Crossover
+            child = crossover(population[parents[0]], population[parents[1]], self.num_assets, self.cardinality, self.crossover_rate) # Crossover
             child = mutation(child, self.mutation_rate) # Mutation
             new_population.append(child)
         return np.array(new_population)

@@ -18,7 +18,7 @@ def binary_tournament(population, fitness):
     return population[ind1] if fitness[ind1] < fitness[ind2] else population[ind2]
 
 
-def crossover(parent1, parent2, num_assets, cardinality):
+def crossover(parent1, parent2, num_assets, cardinality, crossover_rate):
     """
     Perform crossover between two parents to create one child.
     
@@ -30,6 +30,9 @@ def crossover(parent1, parent2, num_assets, cardinality):
     - child: Child (portfolio) created from the parents.
 
     """
+    # If crossover is not performed, return a copy of one of the parents
+    if random.random() > crossover_rate:
+        return np.copy(parent1) if random.random() > 0.5 else np.copy(parent2)
 
     child = np.zeros(num_assets)
     # Posive indexes of parent1 and parent2
@@ -103,7 +106,8 @@ def mutation(individual, mutation_rate):
     
     """
     for i in range(len(individual)):
-        if random.random() < mutation_rate:
-            individual[i] *= random.uniform(0.75, 1.25) # Mutation 25%
+        if individual[i] > 0 and random.random() < mutation_rate:
+            #individual[i] *= random.uniform(0.75, 1.25) # Mutation 25%
+            individual[i] += random.normalvariate(0, 0.15)  # Add Gaussian noise with mean 0 and std deviation 0.15
     individual = projection_simplex(individual)
     return individual
