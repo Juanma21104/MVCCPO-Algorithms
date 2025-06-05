@@ -22,8 +22,8 @@ def plot_pareto_front(population_A, returns, cov_matrix, cardinality, alg_name):
             assets_list[indices] += 1
 
         df_dist = pd.DataFrame({
-            'Num_Activos': np.arange(cardinality + 1),
-            'Num_Soluciones': assets_list.astype(int)
+            'Num_Assets': np.arange(cardinality + 1),
+            'Num_Solutions': assets_list.astype(int)
         })
 
         # Display the distribution of active assets

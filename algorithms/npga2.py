@@ -158,7 +158,8 @@ class NPGA2:
         t = 0
         started_time = time.time()
         while t < self.generations:
-            print(f"Generation: {t}")
+            if t % 10 == 0:
+                print(f"Generation: {t}")
             self.population_A = self.update(self.population_A, self.population_B)
             self.population_B = self.vary(self.population_A)
             t += 1

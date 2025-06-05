@@ -6,7 +6,7 @@ from algorithms.utils.operators import crossover, mutation, binary_tournament
 
 
 class PESA:
-    def __init__(self, N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, crossover_rate, mutation_rate, generations, grid_divisions=10):
+    def __init__(self, N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, crossover_rate, mutation_rate, generations, grid_divisions):
         self.N_arc = N_arc # Archive population size (A_0)
         self.N_pop = N_pop # Usual population size (B_0)
         self.cardinality = cardinality # Number of assets in the portfolio
@@ -208,7 +208,8 @@ class PESA:
         i = 0
         started_time = time.time()
         while i < self.generations:
-            print(f"Generation: {i}")
+            if i % 10 == 0:
+                print(f"Generation: {i}")
             self.population_A = self.update(self.population_A, self.population_B)
             self.population_B = self.vary(self.population_A)
             i += 1

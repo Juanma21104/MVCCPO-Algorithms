@@ -229,7 +229,8 @@ class NSGA2:
         started_time = time.time()
         
         while i < self.generations:
-            print("Generation: ", i)
+            if i % 10 == 0:
+                print("Generation: ", i)
             self.population_A = self.update(self.population_A, self.population_B)
             self.population_B = self.vary(self.population_A)
             i += 1            

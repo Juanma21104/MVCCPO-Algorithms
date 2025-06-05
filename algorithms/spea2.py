@@ -177,7 +177,8 @@ class SPEA2:
         i = 0
         started_time = time.time()
         while i < self.generations:
-            print(f"Generation: {i}")
+            if i % 10 == 0:
+                print(f"Generation: {i}")
             self.population_A = self.update(self.population_A, self.population_B)
             self.population_B = self.vary(self.population_A)
             i += 1
