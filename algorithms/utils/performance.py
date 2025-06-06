@@ -17,8 +17,6 @@ def hypervolume(points):
     F[:, 0] = (F[:, 0] - np.min(F[:, 0])) / (np.max(F[:, 0]) - np.min(F[:, 0]))  # retun
     F[:, 1] = (F[:, 1] - np.min(F[:, 1])) / (np.max(F[:, 1]) - np.min(F[:, 1]))  # risk
 
-    
-
     # Sort the points by the first objective (return)
     F = F[np.argsort(F[:, 0])]
 
@@ -26,14 +24,14 @@ def hypervolume(points):
     ref_point = np.array([0.0, 1.0])
 
     hypervolume = 0.0
-    prev_x = ref_point[0]
+    prev_y = ref_point[0]
 
     # Calculate the hypervolume
     for ret, var in F:
         width = ref_point[1] - var
-        height = ret - prev_x
+        height = ret - prev_y
         hypervolume += width * height
-        prev_x = ret
+        prev_y = ret
 
     return hypervolume
 

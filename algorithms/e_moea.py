@@ -5,6 +5,7 @@ from algorithms.utils.initialization import initialize_population
 from algorithms.utils.fitness import calculate_total_fitness
 from algorithms.utils.operators import binary_tournament, crossover, mutation
 from algorithms.utils.evaluation import precompute_objectives, evaluate
+from algorithms.utils.normalization import normalize_objectives
 
 
 class E_MOEA:
@@ -71,24 +72,6 @@ class E_MOEA:
                 return True
 
         return False
-
-
-    def normalize_objectives(self, matrix_ret_risks):
-        """
-        Normalize the objectives in the matrix.
-        
-        Parameters:
-        - matrix_ret_risks: A 2D array containing the returns and risks of the population.
-        
-        Returns:
-        - norm: A 2D array containing the normalized returns and risks.
-        """
-
-        norm = np.zeros_like(matrix_ret_risks) # Normalized matrix
-        for i in range(2):
-            fmin, fmax = matrix_ret_risks[i].min(), matrix_ret_risks[i].max() # Minimum and maximum values for return and risk
-            norm[i] = (matrix_ret_risks[i] - fmin) / (fmax - fmin + 1e-10) # Normalization
-        return norm
     
 
     def smallest_distance_bigger_than_e(self, ind, points):
@@ -113,7 +96,7 @@ class E_MOEA:
         # Add the individual to the points
         points = np.concatenate((points, ind_array), axis=1)
         # Normalize the points
-        points = (self.normalize_objectives(points)).T
+        points = (normalize_objectives(points)).T
 
         # Get the last point
         ind_obj = np.array([points[-1]])

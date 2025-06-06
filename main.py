@@ -10,7 +10,7 @@ from algorithms.utils.performance import calculate_performance
 if __name__ == "__main__":
 
     # Load dataset and run the algorithm
-    returns, cov_matrix = load_dataset('data/synthetic_data/port5.txt')
+    returns, cov_matrix = load_dataset('data/synthetic_data/Japanese_Nikkei_225.txt')
     #returns, cov_matrix = load_dataset('data/real_data/processed_data/North_America_25_Portfolios_ME_INV_Daily.txt')
     #print(f"Covariance Matrix:\n{cov_matrix}")
 
