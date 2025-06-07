@@ -1,6 +1,7 @@
 import numpy as np
 
 # This module contains functions to normalize an individual and project it onto the simplex of probability.
+
 def projection_simplex(y):
     """
     Projects a vector y onto the simplex defined by the constraints:

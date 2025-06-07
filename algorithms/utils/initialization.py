@@ -2,7 +2,8 @@ import numpy as np
 import random
 from .projection import projection_simplex
 
-# This module contains functions to initialize the population of portfolios
+# This module contains functions to initialize the population of portfolios.
+
 def initialize_population(N_pop, num_assets, cardinality):
     """
     Initialize the population with random portfolios.

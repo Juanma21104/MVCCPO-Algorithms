@@ -31,6 +31,9 @@ if __name__ == "__main__":
 
     # E-MOEA specific parameters
     e = 0.00458 * 6
+
+
+    # Uncomment the algorithm you want to run
  
     # Run NSGA-II 
     """nsga2 = NSGA2(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, crossover_rate, mutation_rate, generations)
@@ -59,7 +62,7 @@ if __name__ == "__main__":
     calculate_performance(final_population, returns, cov_matrix)
     plot_pareto_front(final_population, returns, cov_matrix, cardinality, "PESA")"""
 
-    # Run E-MOEA algorithm    
+    # Run E-MOEA algorithm
     """e_moea = E_MOEA(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, crossover_rate - 0.1, mutation_rate, generations, e)
     final_population = e_moea.evolve()
     calculate_performance(final_population, returns, cov_matrix)

@@ -2,7 +2,7 @@ import numpy as np
 from scipy.spatial.distance import cdist
 from .evaluation import precompute_objectives
 
-# This module contains functions to calculate the fitness of a population
+# This module contains functions to calculate the fitness of a population.
 
 def dominates(matrix_ret_risks, ind1, ind2):
     """

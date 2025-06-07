@@ -1,6 +1,6 @@
 import numpy as np
 
-# This module contains functions to evaluate the performance of portfolios
+# This module contains functions to evaluate individuals and populations to their objectives.
 
 def evaluate(individual, returns, cov_matrix):
     """

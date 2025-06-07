@@ -1,6 +1,7 @@
 import numpy as np
 
-# This module contains functions to normalize the objectives of the portfolios
+# This module contains functions to normalize the objectives of the portfolios.
+
 def normalize_objectives(matrix_ret_risks):
     """
     Normalize the objectives in the matrix.

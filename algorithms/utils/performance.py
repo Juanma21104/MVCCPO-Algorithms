@@ -1,7 +1,8 @@
 import numpy as np
 from algorithms.utils.evaluation import precompute_objectives
 
-# This module contains functions to calculate performance metrics such as hypervolume and Sharpe ratio.
+# This module contains functions to calculate performance metrics: hypervolume and Sharpe ratio.
+
 def hypervolume(points):
     """
     Calculate the hypervolume of the given points.

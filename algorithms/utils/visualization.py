@@ -3,7 +3,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from .evaluation import precompute_objectives
 
-# This module contains functions to visualize the Pareto front of the population
+# This module contains functions to visualize the Pareto front of the population.
+
 def plot_pareto_front(population_A, returns, cov_matrix, cardinality, alg_name):
         """
         Plot the Pareto front of the population.

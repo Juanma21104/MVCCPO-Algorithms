@@ -2,7 +2,8 @@ import numpy as np
 import random
 from .projection import projection_simplex
 
-# This module contains functions to perform selection, crossover, and mutation operations for evolutionary portfolio optimization.
+# This module contains functions to perform binary_tournament, crossover, and mutation operations for evolutionary portfolio optimization.
+
 def binary_tournament(population, fitness):
     """
     Perform binary tournament selection.

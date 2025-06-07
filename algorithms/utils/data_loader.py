@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
 
-# This module contains functions to load datasets for portfolio optimization
+# This module contains functions to load datasets for portfolio optimization.
+
 def load_dataset(file_path):
     """Load dataset and return expected returns and covariance matrix using only pandas."""
 
@@ -46,6 +47,7 @@ def load_dataset(file_path):
     cov_matrix = std_outer * corr_matrix
 
     return stats_df['return'].values, cov_matrix.values
+
 
 def load_real_data(file_path):
     """Load real data from a CSV file and return expected returns and covariance matrix."""
