@@ -11,9 +11,9 @@ if __name__ == "__main__":
 
     # Load dataset and run the algorithm
     returns, cov_matrix = load_dataset('data/synthetic_data/Japanese_Nikkei_225.txt')
-    #returns, cov_matrix = load_dataset('data/real_data/processed_data/North_America_25_Portfolios_ME_INV_Daily.txt')
-    #print(f"Covariance Matrix:\n{cov_matrix}")
 
+    # Parameters for the algorithms
+    # These parameters can be adjusted based on the specific requirements of the problem
     num_assets = len(returns)
     population_size = 250 # N_pop
     generations = 400 # 
@@ -32,39 +32,34 @@ if __name__ == "__main__":
     # Run NSGA-II 
     """nsga2 = NSGA2(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, crossover_rate, mutation_rate, generations)
     final_population = nsga2.evolve()
-    indicators = calculate_performance(final_population, returns, cov_matrix)
-    print(f"Hypervolume: {indicators['hypervolume']:.3f}, Sharpe Ratio: {indicators['sharpe_ratio']:.3f}")
+    calculate_performance(final_population, returns, cov_matrix)
     print_pareto_front(final_population, returns, cov_matrix, cardinality, "NSGA-II")"""
 
 
     # Run SPEA-II algorithm
     """spea2 = SPEA2(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, crossover_rate, mutation_rate, generations)
     final_population = spea2.evolve()
-    indicators = calculate_performance(final_population, returns, cov_matrix)
-    print(f"Hypervolume: {indicators['hypervolume']:.3f}, Sharpe Ratio: {indicators['sharpe_ratio']:.3f}")
+    calculate_performance(final_population, returns, cov_matrix)
     print_pareto_front(final_population, returns, cov_matrix, cardinality, "SPEA2")"""
 
 
     # Run NPGA2 algorithm    
     """npga2 = NPGA2(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, crossover_rate, mutation_rate, generations, tournament_size, niche_radius)
     final_population = npga2.evolve()
-    indicators = calculate_performance(final_population, returns, cov_matrix)
-    print(f"Hypervolume: {indicators['hypervolume']:.3f}, Sharpe Ratio: {indicators['sharpe_ratio']:.3f}")
+    calculate_performance(final_population, returns, cov_matrix)
     print_pareto_front(final_population, returns, cov_matrix, cardinality, "NPGA2")"""
 
 
     # Run PESA algorithm    
     """pesa = PESA(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, crossover_rate - 0.1, mutation_rate, generations, grid_divisions)
     final_population = pesa.evolve()
-    indicators = calculate_performance(final_population, returns, cov_matrix)
-    print(f"Hypervolume: {indicators['hypervolume']:.3f}, Sharpe Ratio: {indicators['sharpe_ratio']:.3f}")
+    calculate_performance(final_population, returns, cov_matrix)
     print_pareto_front(final_population, returns, cov_matrix, cardinality, "PESA")"""
 
     # Run E-MOEA algorithm    
     e = 0.00458 * 1.75
     e_moea = E_MOEA(N_arc, N_pop, num_assets, returns, cov_matrix, cardinality, crossover_rate - 0.1, mutation_rate, generations, e)
     final_population = e_moea.evolve()
-    indicators = calculate_performance(final_population, returns, cov_matrix)
-    print(f"Hypervolume: {indicators['hypervolume']:.3f}, Sharpe Ratio: {indicators['sharpe_ratio']:.3f}")
+    calculate_performance(final_population, returns, cov_matrix)
     print_pareto_front(final_population, returns, cov_matrix, cardinality, "e-MOEA")
             

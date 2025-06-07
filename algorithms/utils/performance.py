@@ -68,7 +68,4 @@ def calculate_performance(population, returns, cov_matrix):
     hypervol = hypervolume(precompute_objectives(population, returns, cov_matrix))
     sharpe = sharpe_ratio(population, returns, cov_matrix)
 
-    return {
-        'hypervolume': hypervol,
-        'sharpe_ratio': sharpe
-    }
+    print(f"Hypervolume: {hypervol:.3f}, Sharpe Ratio: {sharpe:.3f}")
