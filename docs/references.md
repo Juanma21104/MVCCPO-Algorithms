@@ -1,1 +1,0 @@
-https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html
