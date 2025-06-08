@@ -41,7 +41,7 @@ pip install -r requirements.txt
 python main.py
 ```
 Nota: Dentro de main.py, puedes elegir qué algoritmo ejecutar comentando o descomentando las líneas correspondientes, además de elegir los parámetros de todos los algoritmos.
-Cada algoritmo, proporciona la población final, las métricas de evaluación (hipervolumen e índice de Sharpe medio) si se llama a la función encargada de ello, tiempo computacional y un plot con la población final, la frontera de Pareto.
+Cada algoritmo, proporciona la población final, las métricas de evaluación (hipervolumen e índice de Sharpe medio) si se llama a la función encargada de ello, tiempo computacional, el número de individuos por cada cardinal de activo permitido y un plot con la población final, la frontera de Pareto.
 
 #### Consideraciones
 - **Aleatoriedad**: Debido a la naturaleza estocástica de los algoritmos evolutivos, los resultados pueden variar entre ejecuciones.
